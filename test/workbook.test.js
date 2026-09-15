@@ -327,12 +327,14 @@ test("`col` defaults to the first column", async () => {
 test("identical image bytes deduplicate, and a format change does not", async () => {
   const wb = workbook();
   const first = wb.image(PNG, "png");
+  const twice = wb.image(PNG, "png");
   const again = wb.image(new Uint8Array(PNG), "png");
   const asJpeg = wb.image(PNG, "jpeg");
   const shorter = wb.image(PNG.slice(0, 20), "png");
   const different = wb.image(new Uint8Array(PNG.length).fill(7), "png");
 
-  assert.equal(again, first, "the same bytes return the id already issued");
+  assert.equal(twice, first, "the same array returns the id already issued");
+  assert.equal(again, first, "and so do equal bytes in another array");
   assert.notEqual(asJpeg, first, "a different format is a different entry");
   assert.notEqual(shorter, first);
   assert.notEqual(different, first);
