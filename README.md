@@ -1,17 +1,30 @@
 # werkmap
 
-A tiny, CSP-safe OOXML spreadsheet writer for JavaScript. **~5.8KB min+brotli, zero runtime dependencies.**
+A tiny spreadsheet writer for JavaScript. It writes an `.xlsx` file — rows, typed cells, styles, merged ranges, a frozen header, floating images — and nothing else. It does not read one. _Werkmap_ is Dutch for a workbook, which is the one thing this package makes.
 
-[![NPM version](https://img.shields.io/npm/v/werkmap.svg)](https://www.npmjs.com/package/werkmap)
-[![Build Status](https://github.com/getquario/werkmap/actions/workflows/test.yml/badge.svg)](https://github.com/getquario/werkmap/actions/workflows/test.yml)
-[![NPM downloads](https://img.shields.io/npm/dm/werkmap.svg)](https://www.npmjs.com/package/werkmap)
-[![Apache-2.0 license](https://img.shields.io/github/license/getquario/werkmap.svg)](https://github.com/getquario/werkmap/blob/main/LICENSE)
+Writing is the whole surface, so the package stays small enough to audit. The container is written against the ZIP specification over `CompressionStream`, every part is a string, and no value ever turns into code — so it runs unchanged under a Content Security Policy with no `unsafe-*` of any kind, which is what a spreadsheet export in the browser usually cannot do.
 
-_Werkmap_ is Dutch for a workbook, which is the one thing this package makes. It writes an `.xlsx` file — rows, typed cells, styles, merged ranges, a frozen header, floating images — and nothing else. It does not read one.
+- **Byte-identical output.** Nothing consults a clock, a locale or a random source, and the ZIP epoch is pinned, so two renders of the same report are the same bytes and a build that caches by content hash keeps working.
+- **Foreign readers accept it.** The suite loads every workbook it writes back through ExcelJS, an independent implementation — so the tests prove a real reader opens the file, not just that the bytes look plausible.
+- **Zero dependencies.** 5.7 kB minified and brotlied, for the whole writer.
+- **Strict CSP, including in the browser.** No `unsafe-eval` and no `unsafe-inline`. A Chromium page under `default-src 'none'; script-src 'self'` writes a workbook and reports any violation back, and the Node suite runs on `--disallow-code-generation-from-strings`.
+- **Write-only, deliberately.** No reader, no formula engine, no chart support — see [Is werkmap the right tool?](#is-werkmap-the-right-tool) before you install it.
+- **Hardened.** 53 tests at 100% branch coverage.
 
-Writing is the whole surface, so the package is small enough to audit. The container is written against the ZIP specification over `CompressionStream`, every part is a string, and no value ever turns into code: it runs unchanged under a Content Security Policy with no `unsafe-*` of any kind, which is what a spreadsheet export in the browser usually cannot do.
+```js
+import { workbook } from "werkmap";
 
-The same calls produce the same bytes. Nothing consults a clock, a locale or a random source, and the document's dates are pinned rather than stamped — so two renders of the same report are byte-identical, and a build that caches by content hash keeps working.
+const wb = workbook({ title: "Sales" });
+const sheet = wb.sheet("Report");
+
+sheet.row([{ value: "Product" }, { value: "Amount" }]);
+sheet.row([{ value: "Laptop" }, { value: 1000, style: { numberFormat: "#,##0.00" } }]);
+
+const bytes = await wb.bytes();
+//=> Uint8Array — and running this again produces byte-identical output
+```
+
+<img src="https://getquario.com/favicon.svg" alt="Quario logo" width="16" height="16" /> <b>werkmap</b> is built by the team behind <b><a href="https://getquario.com?utm_source=github&utm_medium=readme&utm_campaign=werkmap">Quario</a></b>, a declarative reporting engine for JavaScript that renders JSON report definitions to <b>HTML, PDF, workbooks, and Word</b> — without <code>eval</code>.
 
 ## Contents
 
