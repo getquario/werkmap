@@ -1,0 +1,429 @@
+// What a foreign reader makes of what this writer wrote. Every assertion here
+// goes through exceljs rather than through the XML, so it reads what a
+// spreadsheet application would read.
+import assert from "node:assert/strict";
+import test from "node:test";
+import { workbook } from "../lib/index.js";
+import { PNG, book, parts, xml } from "./helpers.js";
+
+test("a workbook carries its metadata and a pinned clock", async () => {
+  const wb = workbook({
+    title: "Sales",
+    creator: "quario",
+    subject: "Q3",
+    description: "Rendered with an unlicensed copy",
+  });
+  wb.sheet("Report").row([{ value: "Hello" }]);
+  const read = await book(await wb.bytes());
+
+  assert.equal(read.title, "Sales");
+  assert.equal(read.creator, "quario");
+  assert.equal(read.subject, "Q3");
+  assert.equal(read.description, "Rendered with an unlicensed copy");
+  assert.equal(read.created.getTime(), 0, "created is pinned to the epoch");
+  assert.equal(read.modified.getTime(), 0, "and so is modified");
+});
+
+test("metadata is optional, and a workbook needs no arguments at all", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1 }]);
+  const read = await book(await wb.bytes());
+  assert.equal(read.title, undefined);
+  assert.equal(read.getWorksheet("Report").getCell("A1").value, 1);
+});
+
+test("cells keep their types", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "text" }, { value: 1234.5 }, { value: true }, { value: false }]);
+  sheet.row([{ value: new Date(Date.UTC(2024, 1, 29, 12)) }, { value: null }, null]);
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+
+  assert.equal(ws.getCell("A1").value, "text");
+  assert.equal(ws.getCell("B1").value, 1234.5);
+  assert.equal(ws.getCell("C1").value, true);
+  assert.equal(ws.getCell("D1").value, false);
+  assert.deepEqual(ws.getCell("A2").value, new Date(Date.UTC(2024, 1, 29, 12)));
+  assert.equal(ws.getCell("B2").value, null);
+});
+
+test("a date before the phantom leap day converts correctly", async () => {
+  const wb = workbook();
+  // 1900-02-28 is serial 59; Excel's phantom 1900-02-29 sits at 60, which the
+  // 1899-12-30 epoch absorbs.
+  wb.sheet("Report").row([{ value: new Date(Date.UTC(1900, 1, 28)) }]);
+  const sheet = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.match(sheet, /<v>59<\/v>/);
+});
+
+test("a date gets a date format unless the caller names one", async () => {
+  const wb = workbook();
+  const when = new Date(Date.UTC(2024, 1, 29));
+  wb.sheet("Report").row([
+    { value: when },
+    { value: when, style: null },
+    { value: when, style: { font: { bold: true } } },
+    { value: when, style: { numberFormat: null } },
+    { value: when, style: { numberFormat: "dd mmm yyyy" } },
+  ]);
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+
+  for (const at of ["A1", "B1", "C1", "D1"])
+    assert.equal(ws.getCell(at).numFmt, "mm-dd-yy", `${at} took the short-date built-in`);
+  assert.equal(ws.getCell("E1").numFmt, "dd mmm yyyy", "a named format wins");
+  assert.deepEqual(ws.getCell("A1").value, when, "and the value is still a date");
+});
+
+test("a style that is not an object is refused even on a date cell", () => {
+  const sheet = workbook().sheet("Report");
+  assert.throws(() => sheet.row([{ value: new Date(0), style: "bold" }]), TypeError);
+});
+
+test("a merge can reach past the widest row", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  const row = sheet.row([{ value: "wide" }]);
+  sheet.merge(row, 1, 3);
+  assert.match(
+    xml(await wb.bytes())["xl/worksheets/sheet1.xml"],
+    /<dimension ref="A1:C1"\/>/,
+    "the merged range widens the sheet",
+  );
+});
+
+test("a very large number writes an uppercase exponent", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1e21 }]);
+  const sheet = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.match(sheet, /<v>1E\+21<\/v>/, "Excel writes E, not e");
+});
+
+test("rich text is a bare array, and every run carries its font in full", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([
+    {
+      value: [
+        { text: "Total " },
+        { text: "bold", font: { bold: true, color: "#b91c1c" } },
+        { text: " and plain", font: null },
+      ],
+    },
+  ]);
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+  const value = ws.getCell("A1").value;
+
+  assert.equal(value.richText.length, 3);
+  assert.equal(value.richText[0].text, "Total ");
+  assert.equal(value.richText[1].text, "bold");
+  assert.equal(value.richText[1].font.bold, true);
+  assert.equal(value.richText[1].font.color.argb, "FFB91C1C");
+  assert.equal(value.richText[2].text, " and plain");
+});
+
+test("the whole style vocabulary reaches the cell", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([
+    {
+      value: "styled",
+      style: {
+        font: {
+          name: "Times New Roman",
+          size: 16,
+          bold: true,
+          italic: true,
+          underline: true,
+          strikethrough: true,
+          color: "#008000",
+        },
+        fill: "#eee",
+        border: {
+          top: { style: "thin", color: "#999999" },
+          bottom: { style: "dashed" },
+          left: null,
+        },
+        alignment: { horizontal: "center", vertical: "top", wrapText: true },
+        numberFormat: "#,##0.00",
+      },
+    },
+  ]);
+  const cell = (await book(await wb.bytes())).getWorksheet("Report").getCell("A1");
+
+  assert.equal(cell.font.name, "Times New Roman");
+  assert.equal(cell.font.size, 16);
+  assert.equal(cell.font.bold, true);
+  assert.equal(cell.font.italic, true);
+  assert.equal(cell.font.underline, true);
+  assert.equal(cell.font.strike, true);
+  assert.equal(cell.font.color.argb, "FF008000");
+  assert.equal(cell.fill.fgColor.argb, "FFEEEEEE", "the #rgb shorthand expands");
+  assert.equal(cell.border.top.style, "thin");
+  assert.equal(cell.border.top.color.argb, "FF999999");
+  assert.equal(cell.border.bottom.style, "dashed");
+  assert.equal(cell.alignment.horizontal, "center");
+  assert.equal(cell.alignment.vertical, "top");
+  assert.equal(cell.alignment.wrapText, true);
+  assert.equal(cell.numFmt, "#,##0.00");
+});
+
+test("a dotted border and the remaining alignments are accepted", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([
+    {
+      value: null,
+      style: {
+        border: { right: { style: "dotted" } },
+        alignment: { horizontal: "justify", vertical: "justify" },
+      },
+    },
+  ]);
+  const cell = (await book(await wb.bytes())).getWorksheet("Report").getCell("A1");
+  assert.equal(cell.border.right.style, "dotted");
+  assert.equal(cell.alignment.horizontal, "justify");
+});
+
+test("a built-in format code is written as its id, a custom one is interned", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([
+    { value: 1, style: { numberFormat: "0.00%" } },
+    { value: 2, style: { numberFormat: "dd mmm yyyy" } },
+    { value: 3, style: { numberFormat: "dd mmm yyyy" } },
+    { value: 4, style: { numberFormat: "0.000" } },
+  ]);
+  const bytes = await wb.bytes();
+  const styles = xml(bytes)["xl/styles.xml"];
+
+  assert.match(styles, /numFmtId="164" formatCode="dd mmm yyyy"/);
+  assert.match(styles, /numFmtId="165" formatCode="0.000"/);
+  assert.doesNotMatch(styles, /formatCode="0.00%"/, "a built-in needs no entry of its own");
+  assert.match(styles, /<numFmts count="2">/, "the repeated code interned once");
+
+  const ws = (await book(bytes)).getWorksheet("Report");
+  assert.equal(ws.getCell("A1").numFmt, "0.00%");
+  assert.equal(ws.getCell("B1").numFmt, "dd mmm yyyy");
+});
+
+test("identical styles collapse to one entry", async () => {
+  const wb = workbook();
+  const style = { font: { bold: true }, fill: "#ff0000" };
+  const sheet = wb.sheet("Report");
+  sheet.row([
+    { value: "a", style },
+    { value: "b", style: { ...style } },
+  ]);
+  sheet.row([{ value: "c", style: { font: { bold: true }, fill: "#ff0000" } }]);
+  const styles = xml(await wb.bytes())["xl/styles.xml"];
+
+  assert.match(styles, /<fonts count="2">/, "one default font and one bold one");
+  assert.match(styles, /<fills count="3">/, "the two reserved fills and one red");
+  assert.match(styles, /<cellXfs count="2">/, "one default format and one styled");
+});
+
+test("repeated text interns once", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "Product" }, { value: "Product" }]);
+  sheet.row([{ value: "Product" }]);
+  const shared = xml(await wb.bytes())["xl/sharedStrings.xml"];
+  assert.match(shared, /count="1" uniqueCount="1"/);
+});
+
+test("markup and control characters reach the cell as inert text", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([
+    { value: '<script>alert("x")</script> & co' },
+    { value: "bell\u0007 and tab\there" },
+    { value: "a literal _x0041_ sequence" },
+    { value: "lone \ud800 surrogate" },
+  ]);
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+
+  assert.equal(ws.getCell("A1").value, '<script>alert("x")</script> & co');
+  assert.equal(
+    ws.getCell("B1").value,
+    "bell and tab\there",
+    "the C0 control is stripped, TAB is not",
+  );
+  assert.equal(ws.getCell("C1").value, "a literal _x0041_ sequence", "the escape survives as text");
+  assert.equal(ws.getCell("D1").value, "lone  surrogate", "the unpaired surrogate is stripped");
+});
+
+test("leading and trailing whitespace survives", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: "  padded  " }]);
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+  assert.equal(ws.getCell("A1").value, "  padded  ");
+});
+
+test("a merged range spans the columns it names", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  const row = sheet.row([{ value: "Title" }, null, null]);
+  sheet.merge(row, 1, 3);
+  sheet.row([{ value: "below" }]);
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+
+  assert.ok(ws.getCell("A1").isMerged);
+  assert.ok(ws.getCell("C1").isMerged);
+  assert.ok(!ws.getCell("A2").isMerged);
+});
+
+test("two merges on one row sit side by side", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  const row = sheet.row([null, null, null, null]);
+  sheet.merge(row, 1, 2);
+  sheet.merge(row, 3, 2);
+  const sheetXml = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.match(sheetXml, /<mergeCells count="2">/);
+  assert.match(sheetXml, /ref="C1:D1"/);
+});
+
+test("a frozen pane holds, and zero clears it", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "head" }]);
+  sheet.freeze(1);
+  let ws = (await book(await wb.bytes())).getWorksheet("Report");
+  assert.equal(ws.views[0].state, "frozen");
+  assert.equal(ws.views[0].ySplit, 1);
+
+  sheet.freeze(0);
+  ws = (await book(await wb.bytes())).getWorksheet("Report");
+  assert.notEqual(ws.views[0].state, "frozen");
+});
+
+test("an image floats at the cell it anchors to", async () => {
+  const wb = workbook();
+  const logo = wb.image(PNG, "png");
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "row one" }]);
+  sheet.row([{ value: "row two" }]);
+  sheet.place(logo, { row: 2, col: 2, width: 120, height: 40 });
+
+  const bytes = await wb.bytes();
+  const read = await book(bytes);
+  const [drawing] = read.getWorksheet("Report").getImages();
+
+  assert.equal(drawing.range.tl.nativeRow, 1, "1-based at the surface, 0-based in the XML");
+  assert.equal(drawing.range.tl.nativeCol, 1);
+  assert.equal(read.model.media[drawing.imageId].extension, "png");
+  assert.match(
+    xml(bytes)["xl/drawings/drawing1.xml"],
+    /cx="1143000" cy="381000"/,
+    "CSS pixels at 96 dpi become EMU",
+  );
+});
+
+test("`col` defaults to the first column", async () => {
+  const wb = workbook();
+  const logo = wb.image(PNG, "png");
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "anchor" }]);
+  sheet.place(logo, { row: 1, width: 10, height: 10 });
+  const [drawing] = (await book(await wb.bytes())).getWorksheet("Report").getImages();
+  assert.equal(drawing.range.tl.nativeCol, 0);
+});
+
+test("identical image bytes deduplicate, and a format change does not", async () => {
+  const wb = workbook();
+  const first = wb.image(PNG, "png");
+  const again = wb.image(new Uint8Array(PNG), "png");
+  const asJpeg = wb.image(PNG, "jpeg");
+  const shorter = wb.image(PNG.slice(0, 20), "png");
+  const different = wb.image(new Uint8Array(PNG.length).fill(7), "png");
+
+  assert.equal(again, first, "the same bytes return the id already issued");
+  assert.notEqual(asJpeg, first, "a different format is a different entry");
+  assert.notEqual(shorter, first);
+  assert.notEqual(different, first);
+
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "anchor" }]);
+  sheet.place(first, { row: 1, width: 10, height: 10 });
+  const names = Object.keys(parts(await wb.bytes()));
+  assert.ok(names.includes("xl/media/image1.png"));
+  assert.ok(
+    names.includes("xl/media/image2.jpeg"),
+    "the same bytes under another format are their own entry",
+  );
+});
+
+test("one image placed twice on a sheet is one relationship", async () => {
+  const wb = workbook();
+  const logo = wb.image(PNG, "png");
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "a" }]);
+  sheet.row([{ value: "b" }]);
+  sheet.place(logo, { row: 1, width: 10, height: 10 });
+  sheet.place(logo, { row: 2, width: 10, height: 10 });
+
+  const rels = xml(await wb.bytes())["xl/drawings/_rels/drawing1.xml.rels"];
+  assert.equal(rels.match(/<Relationship /g).length, 1);
+});
+
+test("several sheets keep their own rows, drawings and order", async () => {
+  const wb = workbook();
+  const logo = wb.image(PNG, "png");
+  const first = wb.sheet("First");
+  const second = wb.sheet("Second");
+  const third = wb.sheet("Third");
+
+  first.row([{ value: "one" }]);
+  second.row([{ value: "two" }]);
+  second.place(logo, { row: 1, width: 10, height: 10 });
+  third.row([{ value: "three" }]);
+  third.place(logo, { row: 1, width: 10, height: 10 });
+
+  const bytes = await wb.bytes();
+  const read = await book(bytes);
+  assert.deepEqual(
+    read.worksheets.map((each) => each.name),
+    ["First", "Second", "Third"],
+  );
+  assert.equal(read.getWorksheet("Second").getCell("A1").value, "two");
+  assert.equal(read.getWorksheet("First").getImages().length, 0);
+  assert.equal(read.getWorksheet("Third").getImages().length, 1);
+
+  const names = Object.keys(parts(bytes));
+  assert.ok(names.includes("xl/drawings/drawing2.xml"), "drawings number from one, not by sheet");
+  assert.ok(
+    !names.includes("xl/worksheets/_rels/sheet1.xml.rels"),
+    "a sheet with no drawing has no rels part",
+  );
+});
+
+test("a sheet with no rows is still a sheet", async () => {
+  const wb = workbook();
+  wb.sheet("Empty");
+  const bytes = await wb.bytes();
+  assert.match(xml(bytes)["xl/worksheets/sheet1.xml"], /<dimension ref="A1:A1"\/>/);
+  assert.equal((await book(bytes)).getWorksheet("Empty").name, "Empty");
+});
+
+test("columns past Z carry their letters", async () => {
+  const wb = workbook();
+  const cells = Array.from({ length: 703 }, (_, index) => ({ value: index + 1 }));
+  wb.sheet("Report").row(cells);
+  const sheet = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+
+  assert.match(sheet, /r="Z1"/);
+  assert.match(sheet, /r="AA1"/);
+  assert.match(sheet, /r="ZZ1"/);
+  assert.match(sheet, /r="AAA1"/);
+  assert.match(sheet, /<dimension ref="A1:AAA1"\/>/);
+});
+
+test("an empty cell is written only when it carries a style", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: null }, { value: null, style: { fill: "#ff0000" } }]);
+  const sheet = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+
+  assert.doesNotMatch(sheet, /r="A1"/, "an unstyled empty cell is nothing at all");
+  assert.match(sheet, /<c r="B1" s="1"\/>/);
+});
+
+test("a sheet name reaches the workbook escaped", async () => {
+  const wb = workbook();
+  wb.sheet("A & B").row([{ value: 1 }]);
+  assert.match(xml(await wb.bytes())["xl/workbook.xml"], /name="A &amp; B"/);
+});

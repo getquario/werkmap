@@ -1,0 +1,131 @@
+/** A colour as `#rrggbb`, or the `#rgb` shorthand. There is no alpha channel. */
+export type Colour = string;
+
+/** A font, written in full wherever it appears: an OOXML run inherits nothing. */
+export interface Font {
+  /** Defaults to `Calibri`. */
+  name?: string;
+  /** In points. Defaults to 11. */
+  size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  color?: Colour;
+}
+
+/** One side of a cell border. */
+export interface Edge {
+  style: "thin" | "dashed" | "dotted";
+  color?: Colour;
+}
+
+export interface Border {
+  left?: Edge | null;
+  right?: Edge | null;
+  top?: Edge | null;
+  bottom?: Edge | null;
+}
+
+export interface Alignment {
+  horizontal?: "left" | "center" | "right" | "justify" | "fill";
+  vertical?: "top" | "center" | "bottom" | "justify";
+  wrapText?: boolean;
+}
+
+export interface Style {
+  font?: Font | null;
+  /** A fill *is* a colour: solid is the only pattern this writer emits. */
+  fill?: Colour | null;
+  border?: Border | null;
+  alignment?: Alignment | null;
+  /**
+   * A number format code, spelled out. A code matching a built-in is written
+   * as that built-in's id; anything else is interned.
+   */
+  numberFormat?: string | null;
+}
+
+/** One stretch of text inside a rich-text cell. */
+export interface Run {
+  text: string;
+  font?: Font | null;
+}
+
+/**
+ * A cell value. `null` is an empty cell, which is still written when the cell
+ * carries a style. Rich text is a bare array of runs.
+ */
+export type Value = string | number | boolean | Date | readonly Run[] | null;
+
+export interface Cell {
+  value?: Value;
+  style?: Style | null;
+}
+
+/** Where a picture sits, and how large it is drawn. */
+export interface Placement {
+  /** 1-based row of the cell the picture anchors to. */
+  row: number;
+  /** 1-based column of that cell. Defaults to 1. */
+  col?: number;
+  /** CSS pixels at 96 dpi. */
+  width: number;
+  /** CSS pixels at 96 dpi. */
+  height: number;
+}
+
+export interface Sheet {
+  /** This sheet's name. */
+  readonly name: string;
+  /**
+   * Append a row. `null` is an empty unstyled cell. Returns the row's 1-based
+   * position, which `merge` and `place` take.
+   */
+  row(cells: readonly (Cell | null)[]): number;
+  /**
+   * Merge `width` columns of `row`, starting at the 1-based column `at`.
+   * Throws on a width below 2, an overlap, or a row that does not exist yet.
+   */
+  merge(row: number, at: number, width: number): void;
+  /** Freeze the top `count` rows. `0` clears. */
+  freeze(count: number): void;
+  /** Float a picture over the sheet, anchored to one cell. */
+  place(id: number, at: Placement): void;
+}
+
+export interface Metadata {
+  title?: string;
+  creator?: string;
+  subject?: string;
+  description?: string;
+}
+
+export interface Workbook {
+  /**
+   * Embed an image. Identical bytes deduplicate and return the id already
+   * issued. The id is what `Sheet.place` takes.
+   */
+  image(bytes: Uint8Array, format: "png" | "jpeg"): number;
+  /**
+   * Add a worksheet. Throws on a name Excel refuses: empty, over 31
+   * characters, containing `: \ / ? * [ ]`, or a duplicate.
+   */
+  sheet(name: string): Sheet;
+  /**
+   * The finished package. Not terminal in the sense of sealing the document:
+   * call it as often as you like, and the same call sequence yields the same
+   * bytes.
+   */
+  bytes(): Promise<Uint8Array>;
+}
+
+/**
+ * Open a workbook.
+ *
+ * The document's created and modified dates are always `1970-01-01T00:00:00Z`
+ * and cannot be overridden: byte-identity for the same input is this writer's
+ * headline promise, and an overridable clock would redefine "the same input"
+ * as "the same input at the same wall time".
+ */
+export declare const workbook: (meta?: Metadata) => Workbook;

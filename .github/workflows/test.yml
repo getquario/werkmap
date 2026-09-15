@@ -1,0 +1,14 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: getquario/meta/.github/workflows/test.yml@main
