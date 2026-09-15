@@ -1,0 +1,16 @@
+name: Dependabot Merge
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  dependabot:
+    uses: getquario/meta/.github/workflows/dependabot-merge.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
