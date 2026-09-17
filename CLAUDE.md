@@ -40,6 +40,10 @@ observe updates it in the same commit.
   the browser page**, which is why it imports nothing.
 - `test/browser/` — the page, and the harness that serves `lib/` unmodified under a strict
   policy.
+- `bench/index.js` — `npm run bench`, the manual performance instrument, the same deal as in
+  padvinder and sjabloon: no gate, no baseline, a table for a human. It times a row append
+  and the terminal at 1k, 10k and 100k rows and prints the heap the builder holds, which is
+  the number behind the README's "no streaming" line.
 
 ## What the suite may not assert
 

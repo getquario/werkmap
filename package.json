@@ -25,6 +25,7 @@
   },
   "scripts": {
     "check": "run-s fmt:check lint fallow size test test:browser",
+    "bench": "node --disallow-code-generation-from-strings --expose-gc bench/index.js",
     "commitlint": "commitlint",
     "fallow": "fallow",
     "fmt": "oxfmt",

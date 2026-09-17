@@ -7,20 +7,8 @@
   // names them and no path on disk answers to `/lib/index.js`.
   "dynamicallyLoaded": ["test/browser/browser.js"],
   "ignoreUnresolvedImports": ["/lib/index.js", "/fixture.js"],
-  // Loaded by convention from the `size-limit` key in package.json.
-  "ignoreDependencies": ["@size-limit/preset-small-lib"],
   "health": {
-    // CRAP is cyclomatic complexity weighted by how much of a function is
-    // *un*covered, and `test:unit` fails below 100% on every dimension. So
-    // CRAP here can only ever equal the cyclomatic number `maxCyclomatic`
-    // already gates, and it is the weaker of the two. Worse, `lint` runs
-    // fallow with no coverage file, where it falls back to estimating coverage
-    // from export references — which marks every unexported function untested
-    // and is wrong by construction in a package this size. Pointing `coverage`
-    // at the c8 output is not the fix: fallow treats a configured path that is
-    // missing as an error, and `lint` runs before any suite. The measure that
-    // replaces CRAP is stricter than it, not looser.
-    "maxCrap": 1000,
+    "ignore": ["bench/**"],
   },
   "typeAware": {
     "enabled": true,
