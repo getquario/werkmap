@@ -75,6 +75,17 @@ export interface Placement {
   height: number;
 }
 
+/** How a worksheet prints. Every key is optional. */
+export interface PrintSetup {
+  /** All four page margins, in points. Defaults to the reader's own. */
+  margin?: number;
+  /** A paper size OOXML names. There is no arbitrary width and height. */
+  size?: "letter" | "tabloid" | "legal" | "A3" | "A4" | "A5";
+  orientation?: "portrait" | "landscape";
+  /** Scale the sheet to one page wide, and as many pages tall as it takes. */
+  fit?: boolean;
+}
+
 export interface Sheet {
   /** This sheet's name. */
   readonly name: string;
@@ -90,6 +101,12 @@ export interface Sheet {
   merge(row: number, at: number, width: number): void;
   /** Freeze the top `count` rows. `0` clears. */
   freeze(count: number): void;
+  /**
+   * How this worksheet prints. A worksheet that never calls this carries no
+   * print setup at all, so a reader applies its own defaults. Calls merge, so
+   * two calls naming different keys both take effect.
+   */
+  print(setup: PrintSetup): void;
   /** Float a picture over the sheet, anchored to one cell. */
   place(id: number, at: Placement): void;
 }

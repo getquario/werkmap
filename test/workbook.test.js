@@ -402,6 +402,77 @@ test("a sheet with no rows is still a sheet", async () => {
   assert.equal((await book(bytes)).getWorksheet("Empty").name, "Empty");
 });
 
+test("a worksheet carries no print setup unless it asks for one", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1 }]);
+  const sheet = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  // A reader's own defaults beat this writer's opinion, so nothing is written.
+  assert.doesNotMatch(sheet, /<pageMargins|<pageSetup|<sheetPr/);
+});
+
+test("print setup writes the parts it was asked for, in the schema's order", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ margin: 54, size: "A4", orientation: "landscape", fit: true });
+  const written = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+
+  // `sheetPr` opens the worksheet; the two print parts sit after `mergeCells`
+  // and before `drawing`.
+  assert.match(
+    written,
+    /<worksheet[^>]*><sheetPr><pageSetUpPr fitToPage="1"\/><\/sheetPr><dimension/,
+  );
+  assert.match(
+    written,
+    /<pageMargins left="0.750" right="0.750" top="0.750" bottom="0.750" header="0.3" footer="0.3"\/>/,
+    "points convert to inches, and the two margins this surface omits keep Excel's gap",
+  );
+  assert.match(
+    written,
+    /<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"\/>/,
+  );
+});
+
+test("print setup takes each key on its own, and calls merge", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ size: "legal" });
+  sheet.print({ orientation: "portrait" });
+  const written = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+
+  assert.doesNotMatch(written, /<pageMargins/, "no margin was named");
+  assert.doesNotMatch(written, /<sheetPr/, "no fit was named");
+  assert.match(written, /<pageSetup paperSize="5" orientation="portrait"\/>/);
+});
+
+test("a margin alone writes margins and no page setup", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ margin: 0 });
+  const written = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.match(written, /<pageMargins left="0.000"/);
+  assert.doesNotMatch(written, /<pageSetup/);
+});
+
+test("print setup refuses what a reader could not carry", () => {
+  const sheet = workbook().sheet("Report");
+  assert.throws(() => sheet.print(null), TypeError);
+  assert.throws(() => sheet.print("A4"), TypeError);
+  assert.throws(() => sheet.print({ margin: "wide" }), RangeError);
+  assert.throws(() => sheet.print({ margin: -1 }), { name: "RangeError", message: /negative/ });
+  assert.throws(() => sheet.print({ size: "A2" }), {
+    name: "RangeError",
+    message: /unknown paper size/,
+  });
+  assert.throws(() => sheet.print({ orientation: "sideways" }), {
+    name: "RangeError",
+    message: /portrait or landscape/,
+  });
+});
+
 test("columns past Z carry their letters", async () => {
   const wb = workbook();
   const cells = Array.from({ length: 703 }, (_, index) => ({ value: index + 1 }));

@@ -88,7 +88,7 @@ werkmap writes the slice of the format a report needs, and refuses the rest.
 **It does not fit when:**
 
 - You need to read, edit or convert an existing workbook.
-- You need formulas, charts, pivot tables, conditional formatting, data validation, hyperlinks, comments or sheet protection.
+- You need formulas, charts, pivot tables, conditional formatting, data validation, hyperlinks, comments, sheet protection, or a page header and footer.
 - You need column widths or row heights. A reader sizes columns from its own defaults.
 - You have more rows than fit in memory. There is no streaming, row-at-a-time output.
 
@@ -140,6 +140,12 @@ One merged range across `width` columns of `row`, starting at the 1-based column
 ### `sheet.freeze(rows)`
 
 Freeze the top `rows` rows. `0` clears.
+
+### `sheet.print(setup)`
+
+How this worksheet prints: `{ margin, size, orientation, fit }`, every key optional. `margin` is all four page margins in points, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
+
+A worksheet that never calls this carries **no print setup at all**, so a reader applies its own defaults rather than this writer's opinion. Calls merge, so two calls naming different keys both take effect. Print setup is per worksheet, which is where OOXML puts it.
 
 ### `sheet.place(id, { row, col, width, height })`
 
