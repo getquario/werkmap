@@ -173,7 +173,7 @@ There is nothing to configure. Each of these is a property of the writer rather 
 
 - **Text is always interned** into the shared string table.
 - **Style tables are always interned.**
-- **Dates are the 1900 system**, converted in UTC. A reader's timezone is never consulted, and the phantom 1900-02-29 is accounted for, so a date before March 1900 lands on the day it names.
+- **Dates are the 1900 system**, converted in UTC. A reader's timezone never enters the conversion. This writer counts Excel's phantom 1900-02-29, so a date before March 1900 lands on the day it names in Excel. ECMA-376 defines the 1900 system with that fictitious day. LibreOffice Calc omits it and shows those dates one day early. No single serial satisfies both readers, so this writer follows the specification. A date from 1900-03-01 on reads the same in both, which covers every date a report is likely to hold.
 - **A date with no format of its own** gets the short-date built-in, so it reads back as a day rather than as the number underneath it.
 - **Media deduplicates by bytes.**
 - **Every element is written in the Open XML SDK's child order.**
