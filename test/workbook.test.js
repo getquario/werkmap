@@ -591,6 +591,70 @@ test("print titles clear at zero, the way a freeze does", async () => {
   assert.doesNotMatch(xml(await wb.bytes())["xl/workbook.xml"], /definedName/);
 });
 
+test("an autofilter covers the range it was given, in the schema's order", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  for (let n = 0; n < 4; n++) sheet.row([{ value: n }, { value: n }, { value: n }]);
+  sheet.merge(1, 1, 2);
+  sheet.filter({ top: 1, left: 1, bottom: 4, right: 3 });
+  const bytes = await wb.bytes();
+
+  // `autoFilter` follows `sheetData` and precedes `mergeCells` in the
+  // worksheet's child sequence.
+  assert.match(
+    xml(bytes)["xl/worksheets/sheet1.xml"],
+    /<\/sheetData><autoFilter ref="A1:C4"\/><mergeCells/,
+  );
+  // And an independent reader finds the same range.
+  assert.equal((await book(bytes)).getWorksheet("Report").autoFilter, "A1:C4");
+});
+
+test("a worksheet carries no autofilter unless it asks for one", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1 }]);
+  assert.doesNotMatch(xml(await wb.bytes())["xl/worksheets/sheet1.xml"], /<autoFilter/);
+});
+
+test("an autofilter replaces rather than merges, and null clears", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  for (let n = 0; n < 3; n++) sheet.row([{ value: n }, { value: n }]);
+  sheet.filter({ top: 1, left: 1, bottom: 3, right: 2 });
+  sheet.filter({ top: 2, left: 1, bottom: 3, right: 1 });
+  assert.match(xml(await wb.bytes())["xl/worksheets/sheet1.xml"], /<autoFilter ref="A2:A3"\/>/);
+
+  sheet.filter(null);
+  assert.doesNotMatch(xml(await wb.bytes())["xl/worksheets/sheet1.xml"], /<autoFilter/);
+});
+
+test("an autofilter refuses a range a reader could not carry", () => {
+  const sheet = workbook().sheet("Report");
+  sheet.row([{ value: 1 }, { value: 2 }]);
+  assert.throws(() => sheet.filter("A1:B2"), TypeError);
+  assert.throws(() => sheet.filter({ top: 0, left: 1, bottom: 1, right: 1 }), {
+    name: "RangeError",
+    message: /filter: top/,
+  });
+  assert.throws(() => sheet.filter({ top: 2, left: 1, bottom: 1, right: 1 }), {
+    name: "RangeError",
+    message: /filter: bottom 1 is above top 2/,
+  });
+  assert.throws(() => sheet.filter({ top: 1, left: 2, bottom: 1, right: 1 }), {
+    name: "RangeError",
+    message: /filter: right 1 is left of left 2/,
+  });
+  // A filter over cells nobody wrote is a caller's bug, the way a merge over
+  // one is -- and the column rule is the row rule, so both ends are checked.
+  assert.throws(() => sheet.filter({ top: 1, left: 1, bottom: 9, right: 1 }), {
+    name: "RangeError",
+    message: /filter: row 9 does not exist yet \(the sheet has 1\)/,
+  });
+  assert.throws(() => sheet.filter({ top: 1, left: 1, bottom: 1, right: 9 }), {
+    name: "RangeError",
+    message: /filter: column 9 does not exist yet \(the sheet has 2\)/,
+  });
+});
+
 test("print setup refuses what a reader could not carry", () => {
   const sheet = workbook().sheet("Report");
   assert.throws(() => sheet.print(null), TypeError);

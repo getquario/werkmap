@@ -6,10 +6,10 @@ Writing is the whole surface, so the package stays small enough to audit. The co
 
 - **Byte-identical output.** Nothing consults a clock, a locale or a random source, and the ZIP epoch is pinned, so two renders of the same report are the same bytes and a build that caches by content hash keeps working.
 - **Foreign readers accept it.** The suite loads every workbook it writes back through ExcelJS, an independent implementation — so the tests prove a real reader opens the file, not just that the bytes look plausible.
-- **Zero dependencies.** 5.7 kB minified and brotlied, for the whole writer.
+- **Zero dependencies.** 7.0 kB minified and brotlied, for the whole writer.
 - **Strict CSP, including in the browser.** No `unsafe-eval` and no `unsafe-inline`. A Chromium page under `default-src 'none'; script-src 'self'` writes a workbook and reports any violation back, and the Node suite runs on `--disallow-code-generation-from-strings`.
 - **Write-only, deliberately.** No reader, no formula engine, no chart support — see [Is werkmap the right tool?](#is-werkmap-the-right-tool) before you install it.
-- **Hardened.** 53 tests at 100% branch coverage.
+- **Hardened.** 72 tests at 100% branch coverage.
 
 ```js
 import { workbook } from "werkmap";
@@ -152,6 +152,14 @@ The list **replaces** rather than merging, and an empty list clears — a hole i
 What is written is the number you gave, verbatim. Excel may report a slightly different one after a round trip, because it re-derives a width from the default font's digit width — that is the reader's arithmetic, not this writer's.
 
 There is no `hidden`, no outline level and no per-column style: a zero width is the back door to a hidden column, so `0` throws and points at `null`.
+
+### `sheet.filter(range)`
+
+Put an autofilter over `{ top, left, bottom, right }` — 1-based, and inclusive on all four sides. It adds the dropdown controls and **hides nothing**: every row you wrote is still in the document, and what the reader does with the control is theirs.
+
+A worksheet takes one, so a second call **replaces** the first, and `null` clears it. The range must already have been written — its bottom row and its rightmost column both, the way a merge's row must — because a filter over cells nobody wrote is a caller's mistake rather than an empty range. Both are checked when you call, so write the rows first. A worksheet that never calls this carries **no `autoFilter` element at all**.
+
+Excel also records an autofilter as a sheet-scoped `_xlnm._FilterDatabase` defined name, and this writes none. That is measured rather than assumed, in LibreOffice: it opens a file carrying only the element, keeps the filter, and writes that name itself on save — so the name is that reader's bookkeeping rather than something a file owes. Excel's own handling is untested here, and ExcelJS reads the range back either way.
 
 ### `sheet.print(setup)`
 

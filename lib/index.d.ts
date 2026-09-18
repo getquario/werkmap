@@ -91,6 +91,14 @@ export interface PrintSetup {
   titles?: number;
 }
 
+/** The rectangle an autofilter covers. 1-based, and inclusive on all four sides. */
+export interface FilterRange {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+}
+
 export interface Sheet {
   /** This sheet's name. */
   readonly name: string;
@@ -123,6 +131,13 @@ export interface Sheet {
    * two calls naming different keys both take effect.
    */
   print(setup: PrintSetup): void;
+  /**
+   * Put an autofilter over a range, 1-based and inclusive on all four sides.
+   * A worksheet takes one, so this replaces rather than merges, and `null`
+   * clears it. The range's bottom row and rightmost column must already have
+   * been written, checked when you call.
+   */
+  filter(range: FilterRange | null): void;
   /** Float a picture over the sheet, anchored to one cell. */
   place(id: number, at: Placement): void;
 }
