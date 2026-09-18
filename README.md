@@ -143,9 +143,11 @@ Freeze the top `rows` rows. `0` clears.
 
 ### `sheet.print(setup)`
 
-How this worksheet prints: `{ margin, size, orientation, fit }`, every key optional. `margin` is all four page margins in points, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
+How this worksheet prints: `{ margin, size, orientation, fit, titles }`, every key optional. `margin` is all four page margins in points, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
 
 A worksheet that never calls this carries **no print setup at all**, so a reader applies its own defaults rather than this writer's opinion. Calls merge, so two calls naming different keys both take effect. Print setup is per worksheet, which is where OOXML puts it.
+
+`titles: n` repeats the top `n` rows at the top of every printed page — the paper counterpart of `freeze`, which keeps them in view on screen. `0` clears it, as it does for a freeze. This one is written as a `_xlnm.Print_Titles` defined name in `xl/workbook.xml` rather than in the sheet part, and it is scoped to this worksheet alone, so each sheet of a workbook repeats its own rows.
 
 ### `sheet.place(id, { row, col, width, height })`
 

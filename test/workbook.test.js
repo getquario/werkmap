@@ -457,6 +457,67 @@ test("a margin alone writes margins and no page setup", async () => {
   assert.doesNotMatch(written, /<pageSetup/);
 });
 
+test("print titles repeat the top rows, scoped to their own worksheet", async () => {
+  const wb = workbook();
+  const one = wb.sheet("North");
+  one.row([{ value: "Region" }]);
+  one.row([{ value: 1 }]);
+  one.print({ titles: 1 });
+  const two = wb.sheet("South");
+  two.row([{ value: 2 }]);
+  two.print({ titles: 2 });
+  wb.sheet("Quiet").row([{ value: 3 }]);
+  const bytes = await wb.bytes();
+
+  // The names sit after `</sheets>`, which is where the schema puts them, and
+  // `localSheetId` is the 0-based position in that same list. A sheet that
+  // asked for none contributes no name, so the third has none.
+  assert.match(
+    xml(bytes)["xl/workbook.xml"],
+    /<\/sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">'North'!\$1:\$1<\/definedName><definedName name="_xlnm.Print_Titles" localSheetId="1">'South'!\$1:\$2<\/definedName><\/definedNames><\/workbook>/,
+  );
+
+  // And an independent reader agrees about which rows repeat. It hands the
+  // range back without the absolute markers it parsed, so this is exceljs's
+  // spelling of the reference above rather than a second claim about the file.
+  const read = await book(bytes);
+  assert.equal(read.getWorksheet("North").pageSetup.printTitlesRow, "1:1");
+  assert.equal(read.getWorksheet("South").pageSetup.printTitlesRow, "1:2");
+  assert.equal(read.getWorksheet("Quiet").pageSetup.printTitlesRow, undefined);
+
+  // A title count is not print setup in the sheet part, so asking for one
+  // alone still leaves a reader its own margins and paper.
+  assert.doesNotMatch(xml(bytes)["xl/worksheets/sheet1.xml"], /<pageSetup|<pageMargins|<sheetPr/);
+});
+
+test("a workbook nobody asked for titles on carries no defined names", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1 }]);
+  assert.doesNotMatch(xml(await wb.bytes())["xl/workbook.xml"], /definedName/);
+});
+
+test("a sheet name carrying an apostrophe survives the reference", async () => {
+  // A defined name quotes the sheet, so an apostrophe in the name has to
+  // double or the reference ends early. It is XML-escaped after that, like
+  // every other name this writer emits.
+  const wb = workbook();
+  const sheet = wb.sheet("Bob's & Co");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ titles: 1 });
+  const bytes = await wb.bytes();
+  assert.match(xml(bytes)["xl/workbook.xml"], />'Bob''s &amp; Co'!\$1:\$1</);
+  assert.equal((await book(bytes)).getWorksheet("Bob's & Co").pageSetup.printTitlesRow, "1:1");
+});
+
+test("print titles clear at zero, the way a freeze does", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ titles: 2 });
+  sheet.print({ titles: 0 });
+  assert.doesNotMatch(xml(await wb.bytes())["xl/workbook.xml"], /definedName/);
+});
+
 test("print setup refuses what a reader could not carry", () => {
   const sheet = workbook().sheet("Report");
   assert.throws(() => sheet.print(null), TypeError);
@@ -470,6 +531,19 @@ test("print setup refuses what a reader could not carry", () => {
   assert.throws(() => sheet.print({ orientation: "sideways" }), {
     name: "RangeError",
     message: /portrait or landscape/,
+  });
+  assert.throws(() => sheet.print({ titles: 1.5 }), {
+    name: "RangeError",
+    message: /print: titles/,
+  });
+  // 0 is the clear, so the floor a caller is told about is 0 and not 1.
+  assert.throws(() => sheet.print({ titles: -1 }), {
+    name: "RangeError",
+    message: /titles expected 0, or a row count between 1 and 1048576, got -1/,
+  });
+  assert.throws(() => sheet.print({ titles: 1_048_577 }), {
+    name: "RangeError",
+    message: /print: titles/,
   });
 });
 

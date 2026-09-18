@@ -84,6 +84,11 @@ export interface PrintSetup {
   orientation?: "portrait" | "landscape";
   /** Scale the sheet to one page wide, and as many pages tall as it takes. */
   fit?: boolean;
+  /**
+   * Repeat the top `rows` rows at the top of every printed page. `0` clears,
+   * the way a `freeze` of `0` does. Scoped to this worksheet alone.
+   */
+  titles?: number;
 }
 
 export interface Sheet {
