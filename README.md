@@ -159,7 +159,7 @@ Put an autofilter over `{ top, left, bottom, right }` — 1-based, and inclusive
 
 A worksheet takes one, so a second call **replaces** the first, and `null` clears it. The range must already have been written — its bottom row and its rightmost column both, the way a merge's row must — because a filter over cells nobody wrote is a caller's mistake rather than an empty range. Both are checked when you call, so write the rows first. A worksheet that never calls this carries **no `autoFilter` element at all**.
 
-Excel also records an autofilter as a sheet-scoped `_xlnm._FilterDatabase` defined name, and this writes none. That is measured rather than assumed, in LibreOffice: it opens a file carrying only the element, keeps the filter, and writes that name itself on save — so the name is that reader's bookkeeping rather than something a file owes. Excel's own handling is untested here, and ExcelJS reads the range back either way.
+Excel also records an autofilter as a sheet-scoped `_xlnm._FilterDatabase` defined name, and this writes none. That is measured rather than assumed, in both readers: Excel opens a file carrying only the element, with no repair prompt, and reports the sheet's autofilter as on; LibreOffice opens it, keeps the filter, and writes that name itself on save. The name is a reader's bookkeeping rather than something a file owes.
 
 ### `sheet.print(setup)`
 
