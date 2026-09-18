@@ -157,6 +157,31 @@ test("a freeze takes a row count", () => {
   assert.throws(() => sheet.freeze(1_048_576), RangeError);
 });
 
+test("a width list is an array of widths the format can carry", () => {
+  const sheet = sheetOf();
+  assert.throws(() => sheet.widths(12), TypeError);
+  assert.throws(() => sheet.widths(null), { name: "TypeError", message: /an array of widths/ });
+  assert.throws(() => sheet.widths(Array.from({ length: 16_385 }, () => 10)), {
+    name: "RangeError",
+    message: /at most 16384 columns/,
+  });
+  assert.throws(() => sheet.widths([10, "wide"]), {
+    name: "RangeError",
+    message: /column 2: expected a finite number/,
+  });
+  assert.throws(() => sheet.widths([Number.POSITIVE_INFINITY]), RangeError);
+  assert.throws(() => sheet.widths([10, -1]), {
+    name: "RangeError",
+    message: /column 2 expected a width above 0 and at most 255, got -1/,
+  });
+  // Zero is the back door to a hidden column, which is not this surface.
+  assert.throws(() => sheet.widths([0]), {
+    name: "RangeError",
+    message: /null leaves a column unset/,
+  });
+  assert.throws(() => sheet.widths([255.5]), { name: "RangeError", message: /at most 255/ });
+});
+
 test("an image is bytes in a format the writer knows", () => {
   const wb = workbook();
   assert.throws(() => wb.image("logo.png", "png"), { name: "TypeError", message: /Uint8Array/ });

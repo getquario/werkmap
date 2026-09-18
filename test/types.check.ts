@@ -31,6 +31,8 @@ const name: string = sheet.name;
 const row: number = sheet.row(cells);
 sheet.merge(row, 1, 2);
 sheet.freeze(row);
+sheet.widths([12.5, null, 30]);
+sheet.widths([]);
 
 const logo: number = book.image(new Uint8Array([0x89, 0x50]), "png");
 const at: Placement = { row, col: 1, width: 120, height: 40 };

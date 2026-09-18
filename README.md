@@ -89,7 +89,7 @@ werkmap writes the slice of the format a report needs, and refuses the rest.
 
 - You need to read, edit or convert an existing workbook.
 - You need formulas, charts, pivot tables, conditional formatting, data validation, hyperlinks, comments, sheet protection, or a page header and footer.
-- You need column widths or row heights. A reader sizes columns from its own defaults.
+- You need row heights. A reader sizes rows from its own defaults. Column widths it does write — see `sheet.widths`.
 - You have more rows than fit in memory. There is no streaming, row-at-a-time output.
 
 ## API
@@ -140,6 +140,18 @@ One merged range across `width` columns of `row`, starting at the 1-based column
 ### `sheet.freeze(rows)`
 
 Freeze the top `rows` rows. `0` clears.
+
+### `sheet.widths(list)`
+
+Column widths by position: the first entry is column A, and `null` leaves a column unset so a reader keeps its own default for it.
+
+The unit is the format's own — **a count of characters of the workbook's default font**, which is the number Excel's column-width box shows. A width is above 0 and at most 255. Pixels would read more naturally beside `place`, but converting them runs through the default font's maximum digit width, and any cell here may name a font of its own, so that constant would be wrong for most workbooks. The awkward unit invents no number.
+
+The list **replaces** rather than merging, and an empty list clears — a hole in a positional list cannot mean both "leave this one alone" and "clear it". Call it before or after the rows; a width never widens the sheet, because `dimension` describes the cells that were written and sizing a column writes no cell. A worksheet that never calls this carries **no `cols` element at all**.
+
+What is written is the number you gave, verbatim. Excel may report a slightly different one after a round trip, because it re-derives a width from the default font's digit width — that is the reader's arithmetic, not this writer's.
+
+There is no `hidden`, no outline level and no per-column style: a zero width is the back door to a hidden column, so `0` throws and points at `null`.
 
 ### `sheet.print(setup)`
 

@@ -107,6 +107,17 @@ export interface Sheet {
   /** Freeze the top `count` rows. `0` clears. */
   freeze(count: number): void;
   /**
+   * Column widths by position: the first entry is column A, and `null` leaves
+   * a column unset so a reader keeps its own default for it.
+   *
+   * The unit is the format's own — a count of characters of the workbook's
+   * default font, the number Excel's column-width box shows. A width is above
+   * 0 and at most 255.
+   *
+   * Replaces rather than merges, and an empty list clears.
+   */
+  widths(list: readonly (number | null)[]): void;
+  /**
    * How this worksheet prints. A worksheet that never calls this carries no
    * print setup at all, so a reader applies its own defaults. Calls merge, so
    * two calls naming different keys both take effect.

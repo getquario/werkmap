@@ -402,6 +402,79 @@ test("a sheet with no rows is still a sheet", async () => {
   assert.equal((await book(bytes)).getWorksheet("Empty").name, "Empty");
 });
 
+test("column widths reach a reader in the format's own unit", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "Product" }, { value: 1 }, { value: 2 }]);
+  sheet.widths([12.5, null, 255]);
+  const bytes = await wb.bytes();
+
+  const ws = (await book(bytes)).getWorksheet("Report");
+  assert.equal(ws.getColumn(1).width, 12.5);
+  assert.equal(ws.getColumn(3).width, 255);
+  // An unset column carries nothing, so the reader keeps its own default.
+  assert.equal(ws.getColumn(2).width, undefined);
+});
+
+test("a width is written verbatim, one `col` apiece, before the rows", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  // Nothing rounds it: the unit needed no conversion, so the writer owns no
+  // arithmetic here and has nothing to round.
+  sheet.widths([0.1 + 0.2, 8]);
+  const written = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+
+  assert.match(
+    written,
+    /<\/sheetViews><cols><col min="1" max="1" width="0.30000000000000004" customWidth="1"\/><col min="2" max="2" width="8" customWidth="1"\/><\/cols><sheetData>/,
+    "`cols` sits between `sheetViews` and `sheetData`, one element per set column",
+  );
+});
+
+test("a sheet nobody sized carries no cols element", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1 }]);
+  assert.doesNotMatch(xml(await wb.bytes())["xl/worksheets/sheet1.xml"], /<cols>/);
+});
+
+test("a width list replaces, and an all-empty list writes nothing", async () => {
+  const wb = workbook();
+  const one = wb.sheet("Kept");
+  one.row([{ value: 1 }]);
+  one.widths([40, 40]);
+  // The second call is the sheet's widths now -- column 2 goes back to unset.
+  one.widths([12]);
+
+  const two = wb.sheet("Cleared");
+  two.row([{ value: 1 }]);
+  two.widths([40]);
+  two.widths([]);
+
+  const three = wb.sheet("Holes");
+  three.row([{ value: 1 }]);
+  three.widths([null, null]);
+
+  const bytes = await wb.bytes();
+  const read = await book(bytes);
+  assert.equal(read.getWorksheet("Kept").getColumn(1).width, 12);
+  assert.equal(read.getWorksheet("Kept").getColumn(2).width, undefined);
+  assert.doesNotMatch(xml(bytes)["xl/worksheets/sheet2.xml"], /<cols>/);
+  assert.doesNotMatch(xml(bytes)["xl/worksheets/sheet3.xml"], /<cols>/);
+});
+
+test("sizing a column writes no cell, so the sheet stays as wide as its rows", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  // Sized before any row, and past every row there will be.
+  sheet.widths([10, 10, 10, 10]);
+  sheet.row([{ value: 1 }]);
+  const written = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+
+  assert.match(written, /<dimension ref="A1:A1"\/>/);
+  assert.match(written, /<col min="4" max="4"/, "the width itself is still written");
+});
+
 test("a worksheet carries no print setup unless it asks for one", async () => {
   const wb = workbook();
   wb.sheet("Report").row([{ value: 1 }]);
