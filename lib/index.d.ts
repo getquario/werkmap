@@ -99,14 +99,25 @@ export interface FilterRange {
   right: number;
 }
 
+/** What a row says about itself beyond its cells. */
+export interface RowOptions {
+  /**
+   * The row's outline level, an integer from 0 to 7. A reader draws the
+   * levels as collapsible groups in its margin, with the summary row read as
+   * the one below the group. `0`, the default, is a row outside any group.
+   */
+  level?: number;
+}
+
 export interface Sheet {
   /** This sheet's name. */
   readonly name: string;
   /**
    * Append a row. `null` is an empty unstyled cell. Returns the row's 1-based
-   * position, which `merge` and `place` take.
+   * position, which `merge` and `place` take. `options.level` puts the row at
+   * an outline level.
    */
-  row(cells: readonly (Cell | null)[]): number;
+  row(cells: readonly (Cell | null)[], options?: RowOptions): number;
   /**
    * Merge `width` columns of `row`, starting at the 1-based column `at`.
    * Throws on a width below 2, an overlap, or a row that does not exist yet.

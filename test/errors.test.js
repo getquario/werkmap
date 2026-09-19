@@ -210,3 +210,13 @@ test("a placement names an image and a cell that exist", () => {
   });
   assert.throws(() => sheet.place(logo, { row: 1, width: 10, height: -1 }), RangeError);
 });
+
+test("a row's outline level is an integer Excel can draw", () => {
+  const sheet = sheetOf();
+  assert.throws(() => sheet.row([], "1"), { name: "TypeError", message: /row: options/ });
+  for (const level of [-1, 8, 1.5, "1"])
+    assert.throws(() => sheet.row([], { level }), {
+      name: "RangeError",
+      message: /row: level: expected an integer between 0 and 7/,
+    });
+});

@@ -711,3 +711,41 @@ test("a sheet name reaches the workbook escaped", async () => {
   wb.sheet("A & B").row([{ value: 1 }]);
   assert.match(xml(await wb.bytes())["xl/workbook.xml"], /name="A &amp; B"/);
 });
+
+test("outline levels reach a reader as row groups, summarised below", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "North" }], { level: 1 });
+  sheet.row([{ value: "Laptop" }, { value: 1000 }], { level: 2 });
+  sheet.row([{ value: "Mouse" }, { value: 25 }], { level: 2 });
+  sheet.row([{ value: "Subtotal" }, { value: 1025 }], { level: 1 });
+  sheet.row([{ value: "Total" }, { value: 1025 }]);
+  const bytes = await wb.bytes();
+
+  const ws = (await book(bytes)).getWorksheet("Report");
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map((n) => ws.getRow(n).outlineLevel),
+    [1, 2, 2, 1, 0],
+    "each row carries the level it was given, and none is 0 by mistake",
+  );
+  assert.equal(ws.properties.outlineLevelRow, 2, "the sheet states its deepest level");
+  // `sheetFormatPr` sits between `sheetViews` and `sheetData` in the
+  // worksheet's child sequence, and a level of 0 writes no attribute at all.
+  const part = xml(bytes)["xl/worksheets/sheet1.xml"];
+  assert.match(
+    part,
+    /<\/sheetViews><sheetFormatPr defaultRowHeight="15" outlineLevelRow="2"\/><sheetData>/,
+  );
+  assert.match(part, /<row r="5"><c /);
+});
+
+test("a sheet with no outline states no row height and no level count", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.row([{ value: 2 }], {});
+  sheet.row([{ value: 3 }], { level: 0 });
+  sheet.row([{ value: 4 }], { level: null });
+  const part = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.doesNotMatch(part, /sheetFormatPr|outlineLevel/);
+});

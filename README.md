@@ -1,12 +1,12 @@
 # werkmap
 
-A tiny spreadsheet writer for JavaScript. It writes an `.xlsx` file — rows, typed cells, styles, merged ranges, a frozen header, floating images — and nothing else. It does not read one. _Werkmap_ is Dutch for a workbook, which is the one thing this package makes.
+A tiny spreadsheet writer for JavaScript. It writes an `.xlsx` file — rows, typed cells, styles, merged ranges, a frozen header, outline levels, floating images — and nothing else. It does not read one. _Werkmap_ is Dutch for a workbook, which is the one thing this package makes.
 
 Writing is the whole surface, so the package stays small enough to audit. The container is written against the ZIP specification over `CompressionStream`, every part is a string, and no value ever turns into code — so it runs unchanged under a Content Security Policy with no `unsafe-*` of any kind, which is what a spreadsheet export in the browser usually cannot do.
 
 - **Byte-identical output.** Nothing consults a clock, a locale or a random source, and the ZIP epoch is pinned, so two renders of the same report are the same bytes and a build that caches by content hash keeps working.
 - **Foreign readers accept it.** The suite loads every workbook it writes back through ExcelJS, an independent implementation — so the tests prove a real reader opens the file, not just that the bytes look plausible.
-- **Zero dependencies.** 7.0 kB minified and brotlied, for the whole writer.
+- **Zero dependencies.** 7.1 kB minified and brotlied, for the whole writer.
 - **Strict CSP, including in the browser.** No `unsafe-eval` and no `unsafe-inline`. A Chromium page under `default-src 'none'; script-src 'self'` writes a workbook and reports any violation back, and the Node suite runs on `--disallow-code-generation-from-strings`.
 - **Write-only, deliberately.** No reader, no formula engine, no chart support — see [Is werkmap the right tool?](#is-werkmap-the-right-tool) before you install it.
 - **Hardened.** 72 tests at 100% branch coverage.
@@ -114,9 +114,13 @@ Any number of sheets, in call order. Throws on a name a reader refuses: empty, o
 
 The finished package. This does not seal the document: call it as often as you like, and the same call sequence yields the same bytes.
 
-### `sheet.row(cells) -> number`
+### `sheet.row(cells, options?) -> number`
 
 `cells` is an array; the returned number is the row's 1-based position, which `merge`, `freeze` and `place` take.
+
+`options.level` is the row's **outline level**, an integer from 0 to 7. A reader draws the levels as collapsible groups in its left margin — the way Excel's own Group command does — and reads the summary row as the one **below** each group, which is where a total row sits. `0`, the default, is a row outside any group, and a row given no options is at 0. Nothing is hidden or collapsed: every row you wrote is in the document and open, and what the reader does with the controls is theirs.
+
+A sheet that outlines any row also states the workbook's default row height, 15 points, because the format requires it beside the deepest level. A sheet with no outline states neither, and a reader keeps its own default. That is the one place this writer names a row height, and it names the default rather than one of its own.
 
 Each element is `{ value, style }`, or `null` for an empty unstyled cell. `{ value: null, style }` is an empty **styled** cell, which is what a merged span's remaining columns need.
 
@@ -151,7 +155,7 @@ The list **replaces** rather than merging, and an empty list clears — a hole i
 
 What is written is the number you gave, verbatim. Excel may report a slightly different one after a round trip, because it re-derives a width from the default font's digit width — that is the reader's arithmetic, not this writer's.
 
-There is no `hidden`, no outline level and no per-column style: a zero width is the back door to a hidden column, so `0` throws and points at `null`.
+There is no `hidden`, no column outline level and no per-column style: a zero width is the back door to a hidden column, so `0` throws and points at `null`.
 
 ### `sheet.filter(range)`
 
