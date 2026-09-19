@@ -220,3 +220,51 @@ test("a row's outline level is an integer Excel can draw", () => {
       message: /row: level: expected an integer between 0 and 7/,
     });
 });
+
+test("a print header or footer is text a reader can hold", () => {
+  const sheet = sheetOf();
+  sheet.row([{ value: 1 }]);
+  assert.throws(() => sheet.print({ header: 7 }), { name: "TypeError", message: /print: header/ });
+  assert.throws(() => sheet.print({ footer: null }), {
+    name: "TypeError",
+    message: /print: footer/,
+  });
+  assert.throws(() => sheet.print({ header: [7] }), { name: "TypeError", message: /header\[0\]/ });
+  assert.throws(() => sheet.print({ header: ["a", { field: "date" }] }), {
+    name: "RangeError",
+    message: /header\[1\]: expected a field of page or pages, got "date"/,
+  });
+  // The ceiling is on the stored string: 253 letters plus the two-character
+  // alignment code is exactly 255 and passes, and an ampersand stores as two.
+  sheet.print({ header: "x".repeat(253) });
+  assert.throws(() => sheet.print({ header: "x".repeat(254) }), {
+    name: "RangeError",
+    message: /print: header stores as 256 characters, and a reader holds at most 255/,
+  });
+  assert.throws(() => sheet.print({ footer: "&" + "x".repeat(252) }), {
+    name: "RangeError",
+    message: /footer stores as 256/,
+  });
+});
+
+test("a header part in a look is text, and its size is one the format writes", () => {
+  const sheet = sheetOf();
+  sheet.row([{ value: 1 }]);
+  assert.throws(() => sheet.print({ header: [{ text: 7 }] }), {
+    name: "TypeError",
+    message: /header\[0\]\.text/,
+  });
+  for (const size of [0, 100, 1.5, "12"])
+    assert.throws(() => sheet.print({ header: [{ text: "x", size }] }), {
+      name: "RangeError",
+      message: /header\[0\]\.size: expected an integer between 1 and 99/,
+    });
+  assert.throws(() => sheet.print({ header: { left: 7 } }), {
+    name: "TypeError",
+    message: /header\.left: expected text or an array of parts/,
+  });
+  assert.throws(() => sheet.print({ firstFooter: null }), {
+    name: "TypeError",
+    message: /firstFooter/,
+  });
+});

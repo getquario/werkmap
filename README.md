@@ -6,7 +6,7 @@ Writing is the whole surface, so the package stays small enough to audit. The co
 
 - **Byte-identical output.** Nothing consults a clock, a locale or a random source, and the ZIP epoch is pinned, so two renders of the same report are the same bytes and a build that caches by content hash keeps working.
 - **Foreign readers accept it.** The suite loads every workbook it writes back through ExcelJS, an independent implementation — so the tests prove a real reader opens the file, not just that the bytes look plausible.
-- **Zero dependencies.** 7.1 kB minified and brotlied, for the whole writer.
+- **Zero dependencies.** 7.7 kB minified and brotlied, for the whole writer.
 - **Strict CSP, including in the browser.** No `unsafe-eval` and no `unsafe-inline`. A Chromium page under `default-src 'none'; script-src 'self'` writes a workbook and reports any violation back, and the Node suite runs on `--disallow-code-generation-from-strings`.
 - **Write-only, deliberately.** No reader, no formula engine, no chart support — see [Is werkmap the right tool?](#is-werkmap-the-right-tool) before you install it.
 - **Hardened.** 72 tests at 100% branch coverage.
@@ -167,11 +167,21 @@ Excel also records an autofilter as a sheet-scoped `_xlnm._FilterDatabase` defin
 
 ### `sheet.print(setup)`
 
-How this worksheet prints: `{ margin, size, orientation, fit, titles }`, every key optional. `margin` is all four page margins in points, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
+How this worksheet prints: `{ margin, size, orientation, fit, titles, header, footer }`, every key optional. `margin` is all four page margins in points, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
 
 A worksheet that never calls this carries **no print setup at all**, so a reader applies its own defaults rather than this writer's opinion. Calls merge, so two calls naming different keys both take effect. Print setup is per worksheet, which is where OOXML puts it.
 
 `titles: n` repeats the top `n` rows at the top of every printed page — the paper counterpart of `freeze`, which keeps them in view on screen. `0` clears it, as it does for a freeze. This one is written as a `_xlnm.Print_Titles` defined name in `xl/workbook.xml` rather than in the sheet part, and it is scoped to this worksheet alone, so each sheet of a workbook repeats its own rows.
+
+`header` and `footer` are text printed at the top and the bottom of every page. Either is one **section**, printed on the left, or the three sections the format has — `{ left, center, right }`, each optional. A section is a string, or an array of **parts** in order:
+
+- a string, printed as it is;
+- `{ field: "page" }` or `{ field: "pages" }`, the page number and the page count, which the reader fills in as it paginates — `["Page ", { field: "page" }, " of ", { field: "pages" }]`;
+- `{ text, bold, size }`, text in a look: `bold: true` and a font size from 1 to 99, each holding until a later part changes it, and starting plain at every section.
+
+`firstHeader` and `firstFooter` are the first page's, where it differs from the rest. Naming either makes the first page different, and a first-page part you do not name prints nothing on that page — so a footer that should print everywhere goes in `footer`, and only what changes on page one goes in `firstFooter`.
+
+**Text is text**: the format has a small language of `&`-codes for dates, file names and more, and this surface exposes none of it, so an ampersand in your text prints as an ampersand and a newline prints as a line break. A reader holds at most **255 characters** per header or footer as stored — the section codes, each field's code, each look's code and the doubled ampersands count — and a longer text throws rather than being cut mid-sentence by the reader. Nothing appears on screen; a header is print furniture, and the grid is unchanged.
 
 ### `sheet.place(id, { row, col, width, height })`
 

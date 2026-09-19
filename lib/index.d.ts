@@ -76,6 +76,33 @@ export interface Placement {
 }
 
 /** How a worksheet prints. Every key is optional. */
+/**
+ * Text for a page header or footer: a string, or parts in order, where a
+ * `{ field }` is a value the reader fills in as it paginates — `page` is the
+ * page number and `pages` the page count.
+ */
+/**
+ * One part of a page header or footer: text, a `{ field }` the reader fills
+ * in as it paginates (`page` is the page number, `pages` the page count), or
+ * `{ text }` in a look — bold, and a font size from 1 to 99 — that holds
+ * until a later part changes it.
+ */
+export type PrintPart =
+  | string
+  | { field: "page" | "pages" }
+  | { text: string; bold?: boolean; size?: number };
+
+/** One section of a header: a string, or parts in order. */
+export type PrintSection = string | readonly PrintPart[];
+
+/**
+ * Text for a page header or footer: one section, printed on the left, or the
+ * three sections the format has, each optional.
+ */
+export type PrintText =
+  | PrintSection
+  | { left?: PrintSection; center?: PrintSection; right?: PrintSection };
+
 export interface PrintSetup {
   /** All four page margins, in points. Defaults to the reader's own. */
   margin?: number;
@@ -89,6 +116,24 @@ export interface PrintSetup {
    * the way a `freeze` of `0` does. Scoped to this worksheet alone.
    */
   titles?: number;
+  /**
+   * Text printed at the top of every page: one section on the left, or the
+   * three sections named. Text is text: an ampersand is an ampersand and a
+   * newline a line break. The format's own codes are not on this surface;
+   * the page number, the page count, bold and a size are named as parts
+   * instead. At most 255 characters as stored.
+   */
+  header?: PrintText;
+  /** Text printed at the bottom of every page. Same rules as `header`. */
+  footer?: PrintText;
+  /**
+   * The first page's header, where it differs from the rest. Naming either
+   * first-page part makes the first page different; a part not named prints
+   * nothing there.
+   */
+  firstHeader?: PrintText;
+  /** The first page's footer, where it differs from the rest. */
+  firstFooter?: PrintText;
 }
 
 /** The rectangle an autofilter covers. 1-based, and inclusive on all four sides. */

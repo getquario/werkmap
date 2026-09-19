@@ -749,3 +749,94 @@ test("a sheet with no outline states no row height and no level count", async ()
   const part = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
   assert.doesNotMatch(part, /sheetFormatPr|outlineLevel/);
 });
+
+test("a print header and footer reach a reader as page furniture, left-aligned", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ header: "Sales & Marketing\nQ3", footer: "Confidential <internal>" });
+  const bytes = await wb.bytes();
+
+  const ws = (await book(bytes)).getWorksheet("Report");
+  assert.equal(ws.headerFooter.oddHeader, "&LSales && Marketing\nQ3");
+  assert.equal(ws.headerFooter.oddFooter, "&LConfidential <internal>");
+  // `headerFooter` follows `pageSetup` and precedes `drawing` in the
+  // worksheet's child sequence, and the text is escaped for XML as well.
+  const part = xml(bytes)["xl/worksheets/sheet1.xml"];
+  assert.match(
+    part,
+    /<headerFooter><oddHeader>&amp;LSales &amp;&amp; Marketing\nQ3<\/oddHeader><oddFooter>&amp;LConfidential &lt;internal&gt;<\/oddFooter><\/headerFooter><\/worksheet>/,
+  );
+});
+
+test("a header's parts name the page number and count, which the reader fills in", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ footer: ["Page ", { field: "page" }, " of ", { field: "pages" }, " & done"] });
+  const ws = (await book(await wb.bytes())).getWorksheet("Report");
+  assert.equal(ws.headerFooter.oddFooter, "&LPage &P of &N && done");
+});
+
+test("a header alone writes no footer, and merges with the rest of the setup", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ size: "A4" });
+  sheet.print({ header: "Top" });
+  const part = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.match(
+    part,
+    /<pageSetup paperSize="9"\/><headerFooter><oddHeader>&amp;LTop<\/oddHeader><\/headerFooter>/,
+  );
+  assert.doesNotMatch(part, /oddFooter/);
+});
+
+test("a header's three sections print where they are named, and the first page may differ", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({
+    header: { left: "Acme", right: ["Page ", { field: "page" }] },
+    footer: { center: "Confidential" },
+    firstHeader: { center: [{ text: "Sales report", bold: true, size: 14 }] },
+  });
+  const bytes = await wb.bytes();
+  const hf = (await book(bytes)).getWorksheet("Report").headerFooter;
+  assert.equal(hf.oddHeader, "&LAcme&RPage &P");
+  assert.equal(hf.oddFooter, "&CConfidential");
+  assert.equal(hf.firstHeader, "&C&B&14Sales report");
+  assert.equal(hf.differentFirst, true);
+  // The parts sit in the schema's order, and the attribute rides on the
+  // element only because a first-page part was named.
+  assert.match(
+    xml(bytes)["xl/worksheets/sheet1.xml"],
+    /<headerFooter differentFirst="1"><oddHeader>[^<]*<\/oddHeader><oddFooter>[^<]*<\/oddFooter><firstHeader>[^<]*<\/firstHeader><\/headerFooter>/,
+  );
+});
+
+test("a look holds until a part changes it, and starts plain in every section", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({
+    header: [
+      { text: "Bold ", bold: true },
+      { text: "still bold, bigger ", bold: true, size: 12 },
+      { text: "same size, plain ", size: 12 },
+      "and a string is plain too ",
+      { text: "small", size: 8 },
+    ],
+    footer: { left: [{ text: "left", bold: true }], right: [{ text: "right" }] },
+  });
+  const hf = (await book(await wb.bytes())).getWorksheet("Report").headerFooter;
+  assert.equal(
+    hf.oddHeader,
+    "&L&BBold &12still bold, bigger &Bsame size, plain and a string is plain too &08small",
+  );
+  assert.equal(
+    hf.oddFooter,
+    "&L&Bleft&Rright",
+    "the right section does not inherit the left's bold",
+  );
+});
