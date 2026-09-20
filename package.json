@@ -1,6 +1,6 @@
 {
   "name": "werkmap",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Tiny, CSP-safe OOXML spreadsheet writer. Write-only, zero dependencies, byte-identical output.",
   "keywords": [
     "csp",
