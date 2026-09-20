@@ -21,6 +21,8 @@ const build = async () => {
   sheet.row([{ value: new Date(Date.UTC(2024, 1, 29)) }, { value: true }]);
   sheet.freeze(1);
   sheet.place(logo, { row: 1, width: 120, height: 40 });
+  sheet.link(2, 1, { url: "https://example.test/mouse" });
+  sheet.link(3, 1, { location: "'Report'!A1" });
   return wb.bytes();
 };
 

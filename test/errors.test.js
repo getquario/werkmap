@@ -284,3 +284,39 @@ test("a header part in a look is text, and its size is one the format writes", (
     message: /firstFooter/,
   });
 });
+
+test("a link names one destination, and one cell carries one link", () => {
+  const sheet = sheetOf();
+  const row = sheet.row([null, null]);
+
+  assert.throws(() => sheet.link(row, 1, {}), {
+    name: "RangeError",
+    message: /exactly one of url and location/,
+  });
+  assert.throws(() => sheet.link(row, 1, { url: "https://x/y", location: "'Report'!A1" }), {
+    name: "RangeError",
+    message: /exactly one of url and location/,
+  });
+  assert.throws(() => sheet.link(row, 1, undefined), RangeError);
+  assert.throws(() => sheet.link(row, 1, { url: "" }), {
+    name: "RangeError",
+    message: /empty string/,
+  });
+  assert.throws(() => sheet.link(row, 1, { location: "" }), {
+    name: "RangeError",
+    message: /empty string/,
+  });
+  assert.throws(() => sheet.link(row, 1, { url: 7 }), { name: "TypeError" });
+  assert.throws(() => sheet.link(row + 1, 1, { url: "https://x/y" }), {
+    name: "RangeError",
+    message: /does not exist/,
+  });
+  assert.throws(() => sheet.link(0, 1, { url: "https://x/y" }), RangeError);
+  assert.throws(() => sheet.link(row, 0, { url: "https://x/y" }), RangeError);
+
+  sheet.link(row, 1, { url: "https://x/y" });
+  assert.throws(() => sheet.link(row, 1, { location: "'Report'!A1" }), {
+    name: "RangeError",
+    message: /A1 already carries a link/,
+  });
+});

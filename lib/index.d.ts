@@ -165,6 +165,13 @@ export interface RowOptions {
   collapsed?: boolean;
 }
 
+/**
+ * Where one linked cell points: outside the workbook, or inside it. A
+ * `location` is a reference this file can resolve — a cell as `'Sheet2'!A1`,
+ * or a defined name.
+ */
+export type LinkTarget = { url: string } | { location: string };
+
 export interface Sheet {
   /** This sheet's name. */
   readonly name: string;
@@ -181,6 +188,15 @@ export interface Sheet {
    * Throws on a width below 2, an overlap, or a row that does not exist yet.
    */
   merge(row: number, at: number, width: number): void;
+  /**
+   * Link one cell: a destination outside this workbook (`url`) or a reference
+   * inside it (`location`), exactly one of the two.
+   *
+   * Linking writes no cell — a reader shows whatever the row already put
+   * there — so the row must exist first, as a merge's must. A reader holds
+   * one link per cell, so a second on the same cell throws.
+   */
+  link(row: number, at: number, target: LinkTarget): void;
   /** Freeze the top `count` rows. `0` clears. */
   freeze(count: number): void;
   /**

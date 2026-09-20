@@ -151,6 +151,16 @@ Rich text is a **bare array** — there is no wrapper object, because nothing el
 
 One merged range across `width` columns of `row`, starting at the 1-based column `at`.
 
+### `sheet.link(row, at, target)`
+
+Link the cell at 1-based `row` and column `at`. `target` names exactly one of the two destinations the format has: `{ url }`, somewhere outside this workbook, or `{ location }`, a reference inside it — a cell as `'Sheet2'!A1`, or a defined name.
+
+Linking **writes no cell**. What a reader shows is whatever the row already put there, which is why the row must exist first, as a merge's must. A reader holds one link per cell, so a second link on the same cell throws rather than quietly replacing the first, and an empty destination throws rather than becoming a link onto nothing.
+
+Cells pointing at the same `url` share one relationship, however many of them there are — a column of a thousand rows linking one address writes one. An internal `location` needs no relationship at all.
+
+A worksheet that never calls this carries **no `hyperlinks` element**, and no relationship part unless it also places a picture.
+
 ### `sheet.freeze(rows)`
 
 Freeze the top `rows` rows. `0` clears.

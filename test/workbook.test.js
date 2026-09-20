@@ -881,3 +881,68 @@ test("a look holds until a part changes it, and starts plain in every section", 
     "the right section does not inherit the left's bold",
   );
 });
+
+test("a linked cell reaches a reader as a hyperlink, external and internal alike", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "Acme" }, { value: "North" }, { value: "Beta" }]);
+  sheet.link(1, 1, { url: "https://example.test/a?x=1&y=2" });
+  sheet.link(1, 2, { location: "'Report'!A1" });
+  sheet.link(1, 3, { url: "https://example.test/a?x=1&y=2" });
+  const bytes = await wb.bytes();
+
+  // A reader presents a linked cell as its text and its destination together,
+  // which is how it reads one back: the cell kept the value the row gave it.
+  const ws = (await book(bytes)).getWorksheet("Report");
+  assert.deepEqual(ws.getCell("A1").value, {
+    text: "Acme",
+    hyperlink: "https://example.test/a?x=1&y=2",
+  });
+  assert.deepEqual(ws.getCell("C1").value, {
+    text: "Beta",
+    hyperlink: "https://example.test/a?x=1&y=2",
+  });
+
+  const part = xml(bytes)["xl/worksheets/sheet1.xml"];
+  // `hyperlinks` follows `mergeCells` and precedes the print setup in the
+  // worksheet's child sequence. Two cells pointing at one destination share
+  // its relationship; an internal target carries its reference and needs none.
+  assert.match(
+    part,
+    /<hyperlinks><hyperlink ref="A1" r:id="rId1"\/><hyperlink ref="B1" location="'Report'!A1"\/><hyperlink ref="C1" r:id="rId1"\/><\/hyperlinks>/,
+  );
+  const rels = xml(bytes)["xl/worksheets/_rels/sheet1.xml.rels"];
+  assert.match(
+    rels,
+    /Id="rId1"[^>]*Target="https:\/\/example.test\/a\?x=1&amp;y=2" TargetMode="External"/,
+  );
+  assert.equal(rels.match(/<Relationship /g).length, 1, "one relationship per destination");
+});
+
+test("a sheet that links nothing writes no hyperlinks element and no relationships", async () => {
+  const wb = workbook();
+  wb.sheet("Report").row([{ value: 1 }]);
+  const bytes = await wb.bytes();
+  assert.doesNotMatch(xml(bytes)["xl/worksheets/sheet1.xml"], /<hyperlinks[ />]/);
+  assert.ok(!("xl/worksheets/_rels/sheet1.xml.rels" in parts(bytes)), "it wrote a rels part");
+});
+
+test("a drawing keeps the first relationship, and links take the ones after it", async () => {
+  const wb = workbook();
+  const id = wb.image(PNG, "png");
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "Acme" }, { value: "Beta" }]);
+  sheet.place(id, { row: 1, col: 1, width: 10, height: 10 });
+  sheet.link(1, 1, { url: "https://example.test/a" });
+  sheet.link(1, 2, { url: "https://example.test/b" });
+  const bytes = await wb.bytes();
+
+  assert.match(
+    xml(bytes)["xl/worksheets/sheet1.xml"],
+    /<hyperlink ref="A1" r:id="rId2"\/><hyperlink ref="B1" r:id="rId3"\/>/,
+  );
+  const rels = xml(bytes)["xl/worksheets/_rels/sheet1.xml.rels"];
+  assert.match(rels, /Id="rId1" Type="[^"]+\/drawing"/);
+  assert.match(rels, /Id="rId2"[^>]+Target="https:\/\/example.test\/a"/);
+  assert.match(rels, /Id="rId3"[^>]+Target="https:\/\/example.test\/b"/);
+});
