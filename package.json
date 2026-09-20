@@ -24,10 +24,12 @@
     }
   },
   "scripts": {
-    "check": "run-s fmt:check lint fallow size test test:browser",
+    "check": "run-s fmt:check lint fallow:lint size test fallow:health test:browser",
     "bench": "node --disallow-code-generation-from-strings --expose-gc bench/index.js",
     "commitlint": "commitlint",
-    "fallow": "fallow",
+    "fallow": "run-s fallow:lint fallow:health",
+    "fallow:health": "fallow health --coverage coverage/coverage-final.json",
+    "fallow:lint": "fallow dead-code && fallow dupes",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",

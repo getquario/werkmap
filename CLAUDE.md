@@ -59,16 +59,18 @@ observe updates it in the same commit.
 branch **is** the bug, because an unexercised style permutation emits XML nobody has ever
 opened. No `c8 ignore` comments — a branch that cannot be reached should not exist.
 
-**`fallow` does not know that, and two things follow.** It reads `coverage/coverage-final.json`
-when one is there and estimates CRAP from the module graph when it is not. `coverage/` is
-gitignored, so **CI never has one**: every function scores as untested there, CRAP is `cc + cc²`,
-and the ceiling of 30 lands at cyclomatic **4**. A function at 5 fails the lint job while passing
-here, because a local checkout that has ever run the suite still holds a coverage file and gets
-the exact score instead. Run `npx fallow` with `coverage/` moved aside to see what CI sees.
+**`fallow` is told, which is why the gate runs in two halves.** Its CRAP score is complexity
+times untestedness, so a run that cannot see coverage estimates every function as untested,
+`cc + cc²` puts the ceiling of 30 at cyclomatic **4**, and the gate enforces a number nobody
+chose. So `fallow:health` takes `--coverage` and runs **after** the suite, in the job that owns
+testing; `fallow:lint` is the dead-code and duplication half, which needs no coverage and stays
+with the other linters. `npm run fallow` runs both, in that order, and `check` interleaves them
+the same way CI does.
 
-Meet it by splitting, the way `requireRow` and the outline-level helpers are split. Do not raise
-`maxCrap` to make a function pass: the config sets no threshold of its own today, and adding one
-would be this package answering a gate rather than the gate answering this package.
+`fallow:health` **fails** when the coverage file is missing rather than falling back to an
+estimate, which is what stops the gate quietly weakening. Run the suite first, or run
+`npm run check`. A stale file is the other half of the same trap: coverage helps only where it
+matches the current source, and fallow falls back to estimating when it does not.
 
 ## Code comments
 
