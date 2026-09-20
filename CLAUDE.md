@@ -57,9 +57,18 @@ observe updates it in the same commit.
 
 `test:unit` runs under `c8 --100`, and the bar is not negotiable: in a writer the untested
 branch **is** the bug, because an unexercised style permutation emits XML nobody has ever
-opened. No `c8 ignore` comments — a branch that cannot be reached should not exist. That is
-also why `.fallowrc.jsonc` neutralises CRAP: it is the weaker form of a measure this
-package already enforces exactly.
+opened. No `c8 ignore` comments — a branch that cannot be reached should not exist.
+
+**`fallow` does not know that, and two things follow.** It reads `coverage/coverage-final.json`
+when one is there and estimates CRAP from the module graph when it is not. `coverage/` is
+gitignored, so **CI never has one**: every function scores as untested there, CRAP is `cc + cc²`,
+and the ceiling of 30 lands at cyclomatic **4**. A function at 5 fails the lint job while passing
+here, because a local checkout that has ever run the suite still holds a coverage file and gets
+the exact score instead. Run `npx fallow` with `coverage/` moved aside to see what CI sees.
+
+Meet it by splitting, the way `requireRow` and the outline-level helpers are split. Do not raise
+`maxCrap` to make a function pass: the config sets no threshold of its own today, and adding one
+would be this package answering a gate rather than the gate answering this package.
 
 ## Code comments
 
