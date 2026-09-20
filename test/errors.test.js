@@ -221,6 +221,22 @@ test("a row's outline level is an integer Excel can draw", () => {
     });
 });
 
+test("a row option this writer does not know is refused, not dropped", () => {
+  // The defect this closes: an unknown key used to be ignored, so a caller
+  // reaching for a row attribute got no error and no attribute.
+  const sheet = sheetOf();
+  assert.throws(() => sheet.row([], { levl: 1 }), {
+    name: "TypeError",
+    message: /row: options: unknown option "levl"/,
+  });
+  for (const name of ["hidden", "collapsed"])
+    for (const value of ["yes", 1, {}])
+      assert.throws(() => sheet.row([], { [name]: value }), {
+        name: "TypeError",
+        message: new RegExp(`row: ${name}: expected a boolean`),
+      });
+});
+
 test("a print header or footer is text a reader can hold", () => {
   const sheet = sheetOf();
   sheet.row([{ value: 1 }]);

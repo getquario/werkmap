@@ -739,6 +739,47 @@ test("outline levels reach a reader as row groups, summarised below", async () =
   assert.match(part, /<row r="5"><c /);
 });
 
+test("a collapsed group is its rows hidden and its summary row collapsed", async () => {
+  // Both, and neither alone. A hidden row with no collapsed summary leaves the
+  // reader's control showing expanded over rows nobody can see; a collapsed
+  // summary over rows nothing hid collapses nothing. Measured against
+  // LibreOffice, which reads the pair as one closed group and the first alone
+  // as an open group of invisible rows.
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: "North" }], { level: 1 });
+  sheet.row([{ value: "Laptop" }, { value: 1000 }], { level: 2, hidden: true });
+  sheet.row([{ value: "Mouse" }, { value: 25 }], { level: 2, hidden: true });
+  sheet.row([{ value: "Subtotal" }, { value: 1025 }], { level: 1, collapsed: true });
+  const bytes = await wb.bytes();
+
+  const ws = (await book(bytes)).getWorksheet("Report");
+  assert.deepEqual(
+    [1, 2, 3, 4].map((n) => ws.getRow(n).hidden),
+    [false, true, true, false],
+    "the content is hidden and the header and summary are not",
+  );
+  // The reader oracle stops here: exceljs derives its own `collapsed` from
+  // outline depth and never reads the attribute, so it cannot answer for the
+  // half that closes the group. The written part is the oracle for that, and
+  // LibreOffice is what says the pair means one closed group.
+  //
+  // `CT_Row` declares `hidden` before `outlineLevel` before `collapsed`, and
+  // each rides along only where it says something.
+  const part = xml(bytes)["xl/worksheets/sheet1.xml"];
+  assert.match(part, /<row r="2" hidden="1" outlineLevel="2"><c /);
+  assert.match(part, /<row r="4" outlineLevel="1" collapsed="1"><c /);
+});
+
+test("a row says nothing it was not asked to say", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }], { hidden: false, collapsed: false });
+  sheet.row([{ value: 2 }], { hidden: null, collapsed: undefined });
+  const part = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.doesNotMatch(part, /hidden|collapsed/);
+});
+
 test("a sheet with no outline states no row height and no level count", async () => {
   const wb = workbook();
   const sheet = wb.sheet("Report");

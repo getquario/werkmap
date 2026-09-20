@@ -152,6 +152,17 @@ export interface RowOptions {
    * the one below the group. `0`, the default, is a row outside any group.
    */
   level?: number;
+  /**
+   * Whether the row is hidden. A collapsed outline group is its content rows
+   * hidden and its summary row `collapsed`; hiding alone leaves the group's
+   * control showing expanded over rows nobody can see.
+   */
+  hidden?: boolean;
+  /**
+   * Whether this row carries the control of a collapsed group. It goes on the
+   * **summary** row — the one below the group — not on the hidden rows.
+   */
+  collapsed?: boolean;
 }
 
 export interface Sheet {
@@ -160,7 +171,9 @@ export interface Sheet {
   /**
    * Append a row. `null` is an empty unstyled cell. Returns the row's 1-based
    * position, which `merge` and `place` take. `options.level` puts the row at
-   * an outline level.
+   * an outline level, and `hidden` / `collapsed` say whether it is shown and
+   * whether it carries a collapsed group's control. An option this does not
+   * know is refused rather than ignored.
    */
   row(cells: readonly (Cell | null)[], options?: RowOptions): number;
   /**

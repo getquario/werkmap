@@ -9,7 +9,7 @@ Writing is the whole surface, so the package stays small enough to audit. The co
 - **Zero dependencies.** 7.7 kB minified and brotlied, for the whole writer.
 - **Strict CSP, including in the browser.** No `unsafe-eval` and no `unsafe-inline`. A Chromium page under `default-src 'none'; script-src 'self'` writes a workbook and reports any violation back, and the Node suite runs on `--disallow-code-generation-from-strings`.
 - **Write-only, deliberately.** No reader, no formula engine, no chart support — see [Is werkmap the right tool?](#is-werkmap-the-right-tool) before you install it.
-- **Hardened.** 72 tests at 100% branch coverage.
+- **Hardened.** 85 tests at 100% branch coverage.
 
 ```js
 import { workbook } from "werkmap";
@@ -118,7 +118,17 @@ The finished package. This does not seal the document: call it as often as you l
 
 `cells` is an array; the returned number is the row's 1-based position, which `merge`, `freeze` and `place` take.
 
-`options.level` is the row's **outline level**, an integer from 0 to 7. A reader draws the levels as collapsible groups in its left margin — the way Excel's own Group command does — and reads the summary row as the one **below** each group, which is where a total row sits. `0`, the default, is a row outside any group, and a row given no options is at 0. Nothing is hidden or collapsed: every row you wrote is in the document and open, and what the reader does with the controls is theirs.
+`options.level` is the row's **outline level**, an integer from 0 to 7. A reader draws the levels as collapsible groups in its left margin — the way Excel's own Group command does — and reads the summary row as the one **below** each group, which is where a total row sits. `0`, the default, is a row outside any group, and a row given no options is at 0.
+
+`options.hidden` and `options.collapsed` say how a group opens. A collapsed group is **both**: its content rows `hidden`, and its summary row `collapsed`. Hiding alone leaves the group's control showing expanded over rows nobody can see, which is a document in two minds rather than a collapsed group. Neither is set by default, so a row you write is in the document and open unless you say otherwise, and what the reader then does with the controls is theirs.
+
+```js
+sheet.row([{ value: "North" }], { level: 1 });
+sheet.row([{ value: "Laptop" }], { level: 2, hidden: true });
+sheet.row([{ value: "Subtotal" }], { level: 1, collapsed: true });
+```
+
+An option this does not know is **refused**, not ignored: a misspelt one would otherwise be a row attribute you asked for and never got.
 
 A sheet that outlines any row also states the workbook's default row height, 15 points, because the format requires it beside the deepest level. A sheet with no outline states neither, and a reader keeps its own default. That is the one place this writer names a row height, and it names the default rather than one of its own.
 
