@@ -187,7 +187,7 @@ Excel also records an autofilter as a sheet-scoped `_xlnm._FilterDatabase` defin
 
 ### `sheet.print(setup)`
 
-How this worksheet prints: `{ margin, size, orientation, fit, titles, header, footer }`, every key optional. `margin` is all four page margins in points, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
+How this worksheet prints: `{ margin, size, orientation, fit, titles, header, footer }`, every key optional. `margin` is the page margins in points, one number for all four or `{ top, right, bottom, left }`, `size` one of `letter`, `tabloid`, `legal`, `A3`, `A4`, `A5`, `orientation` either `portrait` or `landscape`, and `fit: true` scales the sheet to one page wide and as many pages tall as it takes.
 
 A worksheet that never calls this carries **no print setup at all**, so a reader applies its own defaults rather than this writer's opinion. Calls merge, so two calls naming different keys both take effect. Print setup is per worksheet, which is where OOXML puts it.
 

@@ -530,6 +530,18 @@ test("a margin alone writes margins and no page setup", async () => {
   assert.doesNotMatch(written, /<pageSetup/);
 });
 
+test("a margin may name each side, and each converts on its own", async () => {
+  const wb = workbook();
+  const sheet = wb.sheet("Report");
+  sheet.row([{ value: 1 }]);
+  sheet.print({ margin: { top: 36, right: 18, bottom: 72, left: 9 } });
+  const written = xml(await wb.bytes())["xl/worksheets/sheet1.xml"];
+  assert.match(
+    written,
+    /<pageMargins left="0.125" right="0.250" top="0.500" bottom="1.000" header="0.3" footer="0.3"\/>/,
+  );
+});
+
 test("print titles repeat the top rows, scoped to their own worksheet", async () => {
   const wb = workbook();
   const one = wb.sheet("North");
@@ -661,6 +673,21 @@ test("print setup refuses what a reader could not carry", () => {
   assert.throws(() => sheet.print("A4"), TypeError);
   assert.throws(() => sheet.print({ margin: "wide" }), RangeError);
   assert.throws(() => sheet.print({ margin: -1 }), { name: "RangeError", message: /negative/ });
+  assert.throws(() => sheet.print({ margin: { top: 1, right: 1, bottom: 1 } }), {
+    name: "RangeError",
+    message: /print: margin\.left/,
+  });
+  assert.throws(() => sheet.print({ margin: { top: 1, right: 1, bottom: 1, left: -1 } }), {
+    name: "RangeError",
+    message: /print: margin\.left cannot be negative/,
+  });
+  assert.throws(
+    () => sheet.print({ margin: { top: 1, right: 1, bottom: 1, left: 1, gutter: 1 } }),
+    {
+      name: "RangeError",
+      message: /print: margin takes top, right, bottom and left/,
+    },
+  );
   assert.throws(() => sheet.print({ size: "A2" }), {
     name: "RangeError",
     message: /unknown paper size/,

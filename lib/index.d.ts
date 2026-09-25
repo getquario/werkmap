@@ -104,8 +104,11 @@ export type PrintText =
   | { left?: PrintSection; center?: PrintSection; right?: PrintSection };
 
 export interface PrintSetup {
-  /** All four page margins, in points. Defaults to the reader's own. */
-  margin?: number;
+  /**
+   * The page margins, in points: one number for all four, or each side named.
+   * Defaults to the reader's own.
+   */
+  margin?: number | { top: number; right: number; bottom: number; left: number };
   /** A paper size OOXML names. There is no arbitrary width and height. */
   size?: "letter" | "tabloid" | "legal" | "A3" | "A4" | "A5";
   orientation?: "portrait" | "landscape";
