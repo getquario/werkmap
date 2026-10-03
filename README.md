@@ -31,6 +31,7 @@ const bytes = await wb.bytes();
 - [Install](#install)
 - [Usage](#usage)
 - [Is werkmap the right tool?](#is-werkmap-the-right-tool)
+- [Related packages](#related-packages)
 - [API](#api)
 - [Styles](#styles)
 - [Guarantees, not options](#guarantees-not-options)
@@ -91,6 +92,14 @@ werkmap writes the slice of the format a report needs, and refuses the rest.
 - You need formulas, charts, pivot tables, conditional formatting, data validation, hyperlinks, comments, sheet protection, or a page header and footer.
 - You need row heights. A reader sizes rows from its own defaults. Column widths it does write — see `sheet.widths`.
 - You have more rows than fit in memory. There is no streaming, row-at-a-time output.
+
+## Related packages
+
+werkmap is the writer behind Quario's workbook target. The same team publishes a set of parsers for the other half of a report — the text an author writes — and they share werkmap's CSP terms:
+
+- **[sjabloon](https://github.com/getquario/sjabloon)** — a template engine whose root edition returns a `Token[]` with values in their original types, so a template can fill a cell with the number `1000` rather than the string `"1000"`.
+- **[xprsn](https://github.com/getquario/xprsn)** — an expression language, if a cell's value is a formula your users write and you want it computed in JavaScript before it reaches the workbook.
+- **[padvinder](https://github.com/getquario/padvinder)** — an RFC 9535 JSONPath engine, if the rows come out of a JSON document selected by a query from a user or a saved report.
 
 ## API
 
