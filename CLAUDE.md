@@ -52,6 +52,11 @@ observe updates it in the same commit.
 - **Not** a stored byte golden. "Node 22" is not one zlib — patch releases carry new fork
   revisions — so a golden pins a runtime rather than a document. Byte-identity is tested by
   **self-comparison**: pack the same input twice and compare.
+- The unzipped **text** is the other side of that line, and `test/golden/` records it: one
+  file per part, asserted whole by `golden.test.js`. No zlib reaches it, so it pins the
+  document. It is what holds the constants no assertion names — a namespace URI, a content
+  type, a relationship type — which fragment matches miss and exceljs, parsing by local
+  name, accepts either way. Regenerate with `npm run golden` and read the diff.
 
 ## Coverage
 

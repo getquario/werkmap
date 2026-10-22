@@ -6,25 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { workbook } from "../lib/index.js";
-import { PNG, book, parts } from "./helpers.js";
-
-const build = async () => {
-  const wb = workbook({ title: "Sales", creator: "quario" });
-  const logo = wb.image(PNG, "png");
-  const sheet = wb.sheet("Report");
-  const head = sheet.row([
-    { value: "Sales", style: { font: { bold: true, size: 16 } } },
-    { value: null },
-  ]);
-  sheet.merge(head, 1, 2);
-  sheet.row([{ value: "Mouse & Pad" }, { value: 1050, style: { numberFormat: "#,##0.00" } }]);
-  sheet.row([{ value: new Date(Date.UTC(2024, 1, 29)) }, { value: true }]);
-  sheet.freeze(1);
-  sheet.place(logo, { row: 1, width: 120, height: 40 });
-  sheet.link(2, 1, { url: "https://example.test/mouse" });
-  sheet.link(3, 1, { location: "'Report'!A1" });
-  return wb.bytes();
-};
+import { PNG, book, parts, sample as build } from "./helpers.js";
 
 test("the same calls produce the same bytes", async () => {
   const first = await build();

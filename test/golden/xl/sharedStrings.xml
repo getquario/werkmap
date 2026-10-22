@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="5" uniqueCount="5"><si><t xml:space="preserve">Sales</t></si><si><t xml:space="preserve">Mouse &amp; Pad</t></si><si><t xml:space="preserve">Bordered</t></si><si><r><t xml:space="preserve">rich </t></r><r><rPr><i/><strike/><u/><sz val="11"/><color rgb="FFCC0000"/><rFont val="Georgia"/></rPr><t xml:space="preserve">runs</t></r></si><si><t xml:space="preserve">total</t></si></sst>

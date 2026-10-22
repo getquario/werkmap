@@ -32,6 +32,7 @@
     "fallow:lint": "fallow dead-code && fallow dupes",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "golden": "node test/golden.update.js",
     "lint": "oxlint",
     "mutate": "stryker run",
     "size": "size-limit",
