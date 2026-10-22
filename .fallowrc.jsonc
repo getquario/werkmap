@@ -7,6 +7,9 @@
   // names them and no path on disk answers to `/lib/index.js`.
   "dynamicallyLoaded": ["test/browser/browser.js"],
   "ignoreUnresolvedImports": ["/lib/index.js", "/fixture.js"],
+  // Stryker resolves `testRunner: "tap"` to this package by naming convention at
+  // run time, so no import or script path names it.
+  "ignoreDependencies": ["@stryker-mutator/tap-runner"],
   "health": {
     "ignore": ["bench/**"],
   },
