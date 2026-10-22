@@ -202,6 +202,48 @@ test("a built-in format code is written as its id, a custom one is interned", as
   assert.equal(ws.getCell("B1").numFmt, "dd mmm yyyy");
 });
 
+test("every built-in format code keeps the id a reader already knows", async () => {
+  // Spelled out here rather than read from the writer: a code and its id are
+  // the format's contract, and a table that checked itself would agree with
+  // any typo. An unrecognised code interns from 164 instead, so the absence
+  // of a <numFmts> block is what says the code was recognised at all.
+  const builtIn = [
+    ["General", 0],
+    ["0", 1],
+    ["0.00", 2],
+    ["#,##0", 3],
+    ["#,##0.00", 4],
+    ["0%", 9],
+    ["0.00%", 10],
+    ["0.00E+00", 11],
+    ["# ?/?", 12],
+    ["# ??/??", 13],
+    ["mm-dd-yy", 14],
+    ["d-mmm-yy", 15],
+    ["d-mmm", 16],
+    ["mmm-yy", 17],
+    ["h:mm AM/PM", 18],
+    ["h:mm:ss AM/PM", 19],
+    ["h:mm", 20],
+    ["h:mm:ss", 21],
+    ["m/d/yy h:mm", 22],
+    ["mm:ss", 45],
+    ["[h]:mm:ss", 46],
+    ["mmss.0", 47],
+    ["##0.0E+0", 48],
+    ["@", 49],
+  ];
+
+  for (const [code, id] of builtIn) {
+    const wb = workbook();
+    wb.sheet("Report").row([{ value: 1, style: { numberFormat: code } }]);
+    const styles = xml(await wb.bytes())["xl/styles.xml"];
+    assert.doesNotMatch(styles, /<numFmts/, `${code} was interned rather than recognised`);
+    const cellXfs = /<cellXfs count="\d+">(.*)<\/cellXfs>/.exec(styles)?.[1] ?? "";
+    assert.ok(cellXfs.includes(`numFmtId="${id}"`), `${code} belongs to numFmtId ${id}`);
+  }
+});
+
 test("identical styles collapse to one entry", async () => {
   const wb = workbook();
   const style = { font: { bold: true }, fill: "#ff0000" };
