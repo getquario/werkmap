@@ -24,8 +24,6 @@ const bytes = await wb.bytes();
 //=> Uint8Array — and running this again produces byte-identical output
 ```
 
-<img src="https://getquario.com/favicon.svg" alt="Quario logo" width="16" height="16" /> <b>werkmap</b> is built by the team behind <b><a href="https://getquario.com?utm_source=github&utm_medium=readme&utm_campaign=werkmap">Quario</a></b>, a declarative reporting engine for JavaScript that renders JSON report definitions to <b>HTML, PDF, workbooks, and Word</b> — without <code>eval</code>.
-
 ## Contents
 
 - [Install](#install)
@@ -95,11 +93,11 @@ werkmap writes the slice of the format a report needs, and refuses the rest.
 
 ## Related packages
 
-werkmap is the writer behind Quario's workbook target. The same team publishes a set of parsers for the other half of a report — the text an author writes — and they share werkmap's CSP terms:
+werkmap has three sibling packages. They parse the text a user writes, and they run under the same CSP terms:
 
-- **[sjabloon](https://github.com/getquario/sjabloon)** — a template engine whose root edition returns a `Token[]` with values in their original types, so a template can fill a cell with the number `1000` rather than the string `"1000"`.
-- **[xprsn](https://github.com/getquario/xprsn)** — an expression language, if a cell's value is a formula your users write and you want it computed in JavaScript before it reaches the workbook.
-- **[padvinder](https://github.com/getquario/padvinder)** — an RFC 9535 JSONPath engine, if the rows come out of a JSON document selected by a query from a user or a saved report.
+- **[sjabloon](https://github.com/robinvdvleuten/sjabloon)** — a template engine whose root edition returns a `Token[]` with values in their original types, so a template can fill a cell with the number `1000` rather than the string `"1000"`.
+- **[xprsn](https://github.com/robinvdvleuten/xprsn)** — an expression language, if a cell's value is a formula your users write and you want it computed in JavaScript before it reaches the workbook.
+- **[padvinder](https://github.com/robinvdvleuten/padvinder)** — an RFC 9535 JSONPath engine, if the rows come out of a JSON document selected by a query from a user or a saved report.
 
 ## API
 

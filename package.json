@@ -11,7 +11,7 @@
     "xlsx"
   ],
   "license": "Apache-2.0",
-  "repository": "getquario/werkmap",
+  "repository": "robinvdvleuten/werkmap",
   "files": [
     "lib"
   ],
